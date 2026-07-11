@@ -61,6 +61,15 @@ input:focus,select:focus,button:focus-visible,.chip:focus-visible{outline:2px so
 #speciesBar .sp-title{font-size:13.5px;margin-bottom:9px;line-height:1.5}
 #speciesBar .sp-chips{display:flex;flex-wrap:wrap;gap:8px}
 #speciesBar .chip small{color:var(--ink-dim);font-size:10.5px;margin-left:5px}
+.sp-head{display:flex;gap:12px;margin-bottom:10px}
+#spImg{width:110px;height:110px;object-fit:cover;border-radius:12px;border:1px solid var(--line);flex:0 0 auto}
+.sp-info{min-width:0;flex:1}
+.sp-title .sci{color:var(--ink-dim);font-size:11px;font-weight:400}
+.sp-desc{font-size:12.5px;color:var(--ink-dim);line-height:1.7;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer;margin:2px 0 8px}
+.sp-desc.open{-webkit-line-clamp:unset}
+.sp-links{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pill{font-size:11.5px;color:var(--accent);text-decoration:none;border:1px solid rgba(59,214,238,.4);border-radius:99px;padding:3px 10px}
+.cred{font-size:10px;color:var(--ink-dim);font-family:var(--mono)}
 
 .layout{display:grid;grid-template-columns:1fr;gap:16px}
 @media(min-width:940px){.layout{grid-template-columns:minmax(380px,1fr) minmax(420px,1fr)}
@@ -155,7 +164,17 @@ footer a{color:var(--ink-dim)}
 
 <div class="chips" id="chips" aria-label="選擇區域"></div>
 <div class="chips sub" id="subchips" aria-label="選擇潛點"></div>
-<div id="speciesBar"><div class="sp-title" id="spTitle"></div><div class="sp-chips" id="spChips"></div></div>
+<div id="speciesBar">
+  <div class="sp-head">
+    <img id="spImg" class="hidden" alt="" loading="lazy">
+    <div class="sp-info">
+      <div class="sp-title" id="spTitle"></div>
+      <div class="sp-desc hidden" id="spDesc" title="點一下展開/收合"></div>
+      <div class="sp-links" id="spLinks"></div>
+    </div>
+  </div>
+  <div class="sp-chips" id="spChips"></div>
+</div>
 
 <div class="layout">
   <div class="mapcol">
@@ -533,6 +552,15 @@ function matchSpecies(q){
   }
   return null;
 }
+/* 維基條目對照：中文標題優先，找不到退英文 */
+const WIKI={
+ "海龜":["海龜","Sea turtle"],"鬼蝠魟":["鬼蝠魟","Manta ray"],"鯨鯊":["鯨鯊","Whale shark"],
+ "沙丁魚風暴":["沙丁魚","Sardine run"],"翻車魚 Mola":["翻車魚","Ocean sunfish"],
+ "長尾鯊":["長尾鯊","Thresher shark"],"雙髻鯊":["雙髻鯊","Hammerhead shark"],
+ "海蛞蝓／微距":["海蛞蝓","Nudibranch"],"豆丁海馬":["巴氏豆丁海馬","Pygmy seahorse"],
+ "無毒水母湖":["水母湖","Jellyfish Lake"]};
+
+let wikiSeq=0;
 function renderSpecies(sp){
   searchLayer.clearLayers();
   const bounds=[];
@@ -544,6 +572,10 @@ function renderSpecies(sp){
   });
   if(bounds.length>1)map.fitBounds(bounds,{padding:[40,40]});
   else map.flyTo(bounds[0],9,{duration:.8});
+  /* 重置介紹卡 */
+  const img=$("spImg");img.classList.add("hidden");img.removeAttribute("src");
+  const desc=$("spDesc");desc.classList.add("hidden");desc.classList.remove("open");desc.textContent="";
+  $("spLinks").innerHTML="";
   $("spTitle").innerHTML=`${sp.emoji} 想看 <b>${esc(sp.zh)}</b>？這些點有穩定目擊（點一下查潛況）：`;
   const box=$("spChips");box.innerHTML="";
   sp.spots.forEach(s=>{
@@ -558,6 +590,33 @@ function renderSpecies(sp){
   box.appendChild(x);
   $("speciesBar").classList.add("show");
   toast(`${sp.zh}：${sp.spots.length} 個推薦點已標上地圖（紫色標記）。`);
+  loadWiki(sp,++wikiSeq);
+}
+
+/* 從維基百科 REST API 抓圖片、簡介、條目連結 */
+async function loadWiki(sp,seq){
+  const [zhT,enT]=WIKI[sp.zh]||[sp.zh,null];
+  const tryOne=async(host,title)=>{
+    const r=await fetch(`https://${host}/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
+      {headers:{"Accept-Language":"zh-tw"}});
+    if(!r.ok)throw new Error(r.status);
+    return r.json();
+  };
+  let js=null;
+  try{js=await tryOne("zh.wikipedia.org",zhT);}
+  catch(e){if(enT){try{js=await tryOne("en.wikipedia.org",enT);}catch(e2){}}}
+  if(seq!==wikiSeq)return;            /* 使用者已換搜別的，丟棄舊結果 */
+  const links=$("spLinks");
+  const inat=`<a class="pill" href="https://www.inaturalist.org/search?q=${encodeURIComponent(enT||sp.zh)}" target="_blank" rel="noopener">iNaturalist 目擊 ↗</a>`;
+  if(!js){links.innerHTML=inat;return;}
+  const th=(js.thumbnail&&js.thumbnail.source)||(js.originalimage&&js.originalimage.source);
+  if(th){const img=$("spImg");img.src=th;img.alt=sp.zh;img.classList.remove("hidden");}
+  if(js.extract){const d=$("spDesc");d.textContent=js.extract;d.classList.remove("hidden");
+    d.onclick=()=>d.classList.toggle("open");}
+  if(js.description)$("spTitle").insertAdjacentHTML("beforeend",` <small class="sci">${esc(js.description)}</small>`);
+  const wurl=js.content_urls&&js.content_urls.desktop&&js.content_urls.desktop.page;
+  links.innerHTML=(wurl?`<a class="pill" href="${wurl}" target="_blank" rel="noopener">維基百科 ↗</a>`:"")
+    +inat+`<span class="cred">圖文：Wikipedia（CC BY-SA）</span>`;
 }
 
 /* ============ 搜尋：生物 → 地名/座標 → 地圖 → 撈附近潛點 ============ */
