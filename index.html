@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>潛況 Dive Forecast — 查潛點、看浪況、自潛水肺分開評</title>
-<meta name="description" content="輸入地名或點地圖找潛點，看未來 7–16 天浪高、風速風向、海溫，自潛與水肺分開評分，迎風背風自動判斷，一鍵開 Google 地圖。">
+<meta name="description" content="搜生物、地名、國家找潛點，看未來 7–16 天浪高、風速風向、海溫，自潛與水肺分開評分，迎風背風自動判斷，一鍵開 Google 地圖。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -55,21 +55,22 @@ input:focus,select:focus,button:focus-visible,.chip:focus-visible{outline:2px so
 .chip:hover{color:var(--accent);border-color:rgba(59,214,238,.5)}
 .chip.on{color:var(--accent);border-color:var(--accent);background:rgba(59,214,238,.12);font-weight:700}
 .chips.sub .chip{font-size:12.5px;padding:7px 12px}
+
 #speciesBar{max-width:960px;margin:0 auto 14px;padding:11px 13px;border:1px solid rgba(197,140,242,.45);
   border-radius:14px;background:rgba(120,70,180,.13);display:none}
 #speciesBar.show{display:block}
-#speciesBar .sp-title{font-size:13.5px;margin-bottom:9px;line-height:1.5}
-#speciesBar .sp-chips{display:flex;flex-wrap:wrap;gap:8px}
-#speciesBar .chip small{color:var(--ink-dim);font-size:10.5px;margin-left:5px}
 .sp-head{display:flex;gap:12px;margin-bottom:10px}
 #spImg{width:110px;height:110px;object-fit:cover;border-radius:12px;border:1px solid var(--line);flex:0 0 auto}
 .sp-info{min-width:0;flex:1}
+.sp-title{font-size:13.5px;margin-bottom:4px;line-height:1.5}
 .sp-title .sci{color:var(--ink-dim);font-size:11px;font-weight:400}
 .sp-desc{font-size:12.5px;color:var(--ink-dim);line-height:1.7;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer;margin:2px 0 8px}
 .sp-desc.open{-webkit-line-clamp:unset}
 .sp-links{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.pill{font-size:11.5px;color:var(--accent);text-decoration:none;border:1px solid rgba(59,214,238,.4);border-radius:99px;padding:3px 10px}
+.pill{font-size:11.5px;color:var(--accent);text-decoration:none;border:1px solid rgba(59,214,238,.4);border-radius:99px;padding:3px 10px;background:none;cursor:pointer;font-family:var(--sans)}
 .cred{font-size:10px;color:var(--ink-dim);font-family:var(--mono)}
+.sp-chips{display:flex;flex-wrap:wrap;gap:8px}
+.sp-chips .chip small{color:var(--ink-dim);font-size:10.5px;margin-left:5px}
 
 .layout{display:grid;grid-template-columns:1fr;gap:16px}
 @media(min-width:940px){.layout{grid-template-columns:minmax(380px,1fr) minmax(420px,1fr)}
@@ -85,7 +86,9 @@ input:focus,select:focus,button:focus-visible,.chip:focus-visible{outline:2px so
 .tname small{font-family:var(--mono);font-size:11px;color:var(--ink-dim);font-weight:400;margin-left:8px}
 .gmap{font-size:12.5px;color:var(--accent);text-decoration:none;border:1px solid rgba(59,214,238,.4);
   border-radius:99px;padding:4px 11px;white-space:nowrap}
-.tnote{margin-top:6px;font-size:12.5px;color:var(--ink-dim)}
+.tnote{margin-top:6px;font-size:12.5px;color:var(--ink-dim);line-height:1.7}
+.lifeline{margin-top:4px}
+.lifelink{background:none;border:none;color:var(--accent);cursor:pointer;font-size:12.5px;padding:0;font-family:var(--sans);text-decoration:underline dotted}
 .controls{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex:0 0 auto}
 .seg button{padding:9px 13px;background:transparent;border:0;color:var(--ink-dim);font-size:13.5px;cursor:pointer;font-family:var(--sans)}
@@ -135,7 +138,8 @@ footer a{color:var(--ink-dim)}
 .leaflet-popup-content{margin:12px 14px;font-family:var(--sans);font-size:13.5px;line-height:1.6}
 .leaflet-container a.leaflet-popup-close-button{color:var(--ink-dim)}
 .pop-name{font-weight:700;font-size:14.5px}
-.pop-kind{font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);letter-spacing:.1em;margin:2px 0 8px}
+.pop-kind{font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);letter-spacing:.1em;margin:2px 0 6px}
+.pop-note{font-size:12px;color:var(--ink-dim);margin-bottom:8px;line-height:1.5}
 .pop-btns{display:flex;gap:6px}
 .pop-btns .pb{flex:1;text-align:center;padding:7px 8px;border-radius:9px;font-size:12.5px;text-decoration:none;cursor:pointer;border:0;font-family:var(--sans)}
 .pb.main{background:var(--accent);color:var(--accent-ink);font-weight:700}
@@ -149,11 +153,11 @@ footer a{color:var(--ink-dim)}
 <header>
   <div class="eyebrow">DIVE FORECAST</div>
   <h1>潛況</h1>
-  <div class="sub">搜地名找潛點，看浪況適不適合下水——自潛、水肺分開評</div>
+  <div class="sub">搜生物、地名、國家找潛點，看浪況適不適合下水——自潛、水肺分開評</div>
 </header>
 
 <div class="searchbar">
-  <input id="q" type="search" placeholder="地名、座標或生物（海龜、manta、宿霧…）" autocomplete="off">
+  <input id="q" type="search" placeholder="生物、地名、國家或座標（海龜、菲律賓、Amed…）" autocomplete="off">
   <select id="rad" title="搜尋半徑">
     <option value="10">10 km</option><option value="30" selected>30 km</option>
     <option value="50">50 km</option><option value="100">100 km</option>
@@ -179,7 +183,7 @@ footer a{color:var(--ink-dim)}
 <div class="layout">
   <div class="mapcol">
     <div id="map" role="application" aria-label="潛點地圖"></div>
-    <div class="toast" id="toast">點區域→選潛點；搜尋欄可打地名或生物（例：海龜）。</div>
+    <div class="toast" id="toast">點區域→選潛點；搜尋欄可打生物、地名或國家。</div>
   </div>
 
   <div>
@@ -206,7 +210,8 @@ footer a{color:var(--ink-dim)}
 
 <footer>
   預報 <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>（CC BY 4.0）・
-  潛點與圖資 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors ・ © CARTO<br>
+  潛點與圖資 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors ・ © CARTO ・
+  生物圖文 <a href="https://www.wikipedia.org/" target="_blank" rel="noopener">Wikipedia</a>（CC BY-SA）<br>
   評分僅供行前參考，不取代現場風險評估與專業訓練。
 </footer>
 </div>
@@ -215,63 +220,62 @@ footer a{color:var(--ink-dim)}
 <script>
 "use strict";
 /* ============ 潛點資料（區域 → 細分點）============
-   facing = 該點面向外海的方位角（N=0, E=90…），用來判斷迎風/背風。
-   座標為約略位置（預報用外海格點，差幾百公尺無妨；面向方位才是關鍵），
-   可自行校正 lat/lon/facing。boat 點通常不吃單一面向，facing 留 null。 */
+   facing = 面向外海的方位角（N=0,E=90…），判斷迎風/背風用；life = 常見生物。
+   座標為約略位置，可自行校正。 */
 const REGIONS=[
  {name:"小琉球",sites:[
-   {zh:"美人洞",lat:22.355,lon:120.368,mode:"shore",facing:315,note:"西北岸；海龜密度高"},
-   {zh:"花瓶岩",lat:22.357,lon:120.382,mode:"shore",facing:20,note:"北岸，近白沙尾港"},
-   {zh:"杉福",lat:22.343,lon:120.358,mode:"shore",facing:270,note:"西岸；夏季西南風時首當其衝"},
-   {zh:"大福",lat:22.333,lon:120.388,mode:"shore",facing:90,note:"東岸；西南風時的背風選擇"},
-   {zh:"龍蝦洞",lat:22.352,lon:120.387,mode:"shore",facing:50,note:"東北岸"},
-   {zh:"厚石群礁",lat:22.329,lon:120.380,mode:"shore",facing:160,note:"南岸裙礁"},
+   {zh:"美人洞",lat:22.355,lon:120.368,mode:"shore",facing:315,note:"西北岸",life:"海龜、隆頭魚、硨磲貝"},
+   {zh:"花瓶岩",lat:22.357,lon:120.382,mode:"shore",facing:20,note:"北岸，近白沙尾港",life:"海龜、玻璃魚群"},
+   {zh:"杉福",lat:22.343,lon:120.358,mode:"shore",facing:270,note:"西岸；夏季西南風時首當其衝",life:"海龜、海蛞蝓、共生蝦虎"},
+   {zh:"大福",lat:22.333,lon:120.388,mode:"shore",facing:90,note:"東岸；西南風時的背風選擇",life:"海龜、軟珊瑚"},
+   {zh:"龍蝦洞",lat:22.352,lon:120.387,mode:"shore",facing:50,note:"東北岸",life:"海龜、夜行無脊椎"},
+   {zh:"厚石群礁",lat:22.329,lon:120.380,mode:"shore",facing:160,note:"南岸裙礁",life:"海龜、裙礁魚群"},
  ]},
  {name:"東北角",sites:[
-   {zh:"龍洞灣（和美）",lat:25.109,lon:121.915,mode:"shore",facing:40,note:"自潛大本營；東北季風期常大浪"},
-   {zh:"龍洞四季灣",lat:25.103,lon:121.924,mode:"shore",facing:110,note:"面東南，部分東北風時較龍洞灣緩"},
-   {zh:"潮境公園",lat:25.144,lon:121.805,mode:"shore",facing:10,note:"望海巷保育區；假日人多"},
-   {zh:"卯澳",lat:25.006,lon:121.998,mode:"shore",facing:60,note:"灣澳地形"},
-   {zh:"馬崗",lat:25.008,lon:122.008,mode:"shore",facing:90,note:"最東點，潮池與岸潛"},
+   {zh:"龍洞灣（和美）",lat:25.109,lon:121.915,mode:"shore",facing:40,note:"自潛大本營；東北季風期常大浪",life:"海蛞蝓、章魚、季節魚群"},
+   {zh:"龍洞四季灣",lat:25.103,lon:121.924,mode:"shore",facing:110,note:"面東南",life:"礁岩魚群、海蛞蝓"},
+   {zh:"潮境公園",lat:25.144,lon:121.805,mode:"shore",facing:10,note:"望海巷保育區；假日人多",life:"海蛞蝓、豆丁海馬紀錄、保育魚群"},
+   {zh:"卯澳",lat:25.006,lon:121.998,mode:"shore",facing:60,note:"灣澳地形",life:"海藻床生態、九孔池遺跡"},
+   {zh:"馬崗",lat:25.008,lon:122.008,mode:"shore",facing:90,note:"最東點",life:"潮間帶生物、海兔"},
  ]},
  {name:"墾丁",sites:[
-   {zh:"後壁湖",lat:21.944,lon:120.744,mode:"shore",facing:200,note:"航道旁軟珊瑚區；注意船隻"},
-   {zh:"出水口",lat:21.930,lon:120.750,mode:"shore",facing:170,note:"南灣東側"},
-   {zh:"萬里桐",lat:21.999,lon:120.701,mode:"shore",facing:270,note:"西岸經典；東北季風期的背風面"},
-   {zh:"山海",lat:22.013,lon:120.698,mode:"shore",facing:275,note:"西岸"},
-   {zh:"合界",lat:22.029,lon:120.700,mode:"shore",facing:290,note:"西北岸"},
+   {zh:"後壁湖",lat:21.944,lon:120.744,mode:"shore",facing:200,note:"航道旁；注意船隻",life:"軟珊瑚花園、雀鯛群"},
+   {zh:"出水口",lat:21.930,lon:120.750,mode:"shore",facing:170,note:"南灣東側",life:"梭魚群、海蛇、硬珊瑚"},
+   {zh:"萬里桐",lat:21.999,lon:120.701,mode:"shore",facing:270,note:"西岸經典；東北季風期背風",life:"珊瑚礁魚群、海蛞蝓"},
+   {zh:"山海",lat:22.013,lon:120.698,mode:"shore",facing:275,note:"西岸",life:"軟珊瑚斜坡、獅子魚"},
+   {zh:"合界",lat:22.029,lon:120.700,mode:"shore",facing:290,note:"西北岸",life:"海扇、殘骸生態"},
  ]},
  {name:"綠島",sites:[
-   {zh:"石朗",lat:22.658,lon:121.465,mode:"shore",facing:260,note:"西岸保護區"},
-   {zh:"柴口",lat:22.678,lon:121.483,mode:"shore",facing:350,note:"北岸保護區"},
-   {zh:"大白沙",lat:22.636,lon:121.466,mode:"shore",facing:225,note:"西南岸"},
-   {zh:"鋼鐵礁",lat:22.640,lon:121.510,mode:"boat",facing:null,note:"人工魚礁船潛"},
+   {zh:"石朗",lat:22.658,lon:121.465,mode:"shore",facing:260,note:"西岸保護區",life:"大香菇微孔珊瑚、燕魚、海龜"},
+   {zh:"柴口",lat:22.678,lon:121.483,mode:"shore",facing:350,note:"北岸保護區",life:"高密度珊瑚礁魚群"},
+   {zh:"大白沙",lat:22.636,lon:121.466,mode:"shore",facing:225,note:"西南岸",life:"白沙地、園鰻"},
+   {zh:"鋼鐵礁",lat:22.640,lon:121.510,mode:"boat",facing:null,note:"人工魚礁船潛",life:"燕魚群、梭魚風暴"},
  ]},
  {name:"蘭嶼",sites:[
-   {zh:"開元港",lat:22.060,lon:121.502,mode:"shore",facing:280,note:"西岸"},
-   {zh:"雙獅岩",lat:22.083,lon:121.562,mode:"shore",facing:10,note:"北岸"},
-   {zh:"東清灣",lat:22.073,lon:121.605,mode:"shore",facing:70,note:"東岸"},
-   {zh:"八代灣",lat:22.023,lon:121.533,mode:"shore",facing:210,note:"西南岸"},
+   {zh:"開元港",lat:22.060,lon:121.502,mode:"shore",facing:280,note:"西岸",life:"玻璃魚、大斷層生態"},
+   {zh:"雙獅岩",lat:22.083,lon:121.562,mode:"shore",facing:10,note:"北岸",life:"軟珊瑚、洞穴地形生物"},
+   {zh:"東清灣",lat:22.073,lon:121.605,mode:"shore",facing:70,note:"東岸",life:"原始珊瑚礁、海蛇"},
+   {zh:"八代灣",lat:22.023,lon:121.533,mode:"shore",facing:210,note:"西南岸",life:"八代灣沉船、燕魚"},
  ]},
  {name:"澎湖",sites:[
-   {zh:"澎湖（馬公）",lat:23.565,lon:119.580,mode:"boat",facing:null,note:"以船潛為主；冬季東北季風大"},
+   {zh:"澎湖（馬公）",lat:23.565,lon:119.580,mode:"boat",facing:null,note:"以船潛為主；冬季東北季風大",life:"薰衣草森林軸孔珊瑚、玳瑁石斑"},
  ]},
  {name:"國外",sites:[
-   {zh:"Moalboal",lat:9.940,lon:123.370,mode:"shore",facing:270,note:"宿霧；沙丁魚風暴"},
-   {zh:"Panglao",lat:9.550,lon:123.770,mode:"boat",facing:null,note:"薄荷島；Balicasag 船潛"},
-   {zh:"Tulamben",lat:-8.274,lon:115.593,mode:"shore",facing:30,note:"峇里；Liberty 沉船岸潛"},
-   {zh:"Amed",lat:-8.336,lon:115.663,mode:"shore",facing:80,note:"峇里；自潛訓練重鎮"},
-   {zh:"Nusa Penida",lat:-8.730,lon:115.520,mode:"boat",facing:null,note:"Manta/Mola；海流強"},
-   {zh:"沖繩真栄田岬",lat:26.444,lon:127.771,mode:"shore",facing:300,note:"青之洞窟"},
-   {zh:"石垣島",lat:24.450,lon:124.140,mode:"boat",facing:null,note:"Manta Scramble"},
-   {zh:"龜島 Koh Tao",lat:10.095,lon:99.840,mode:"boat",facing:null,note:"自潛/水肺教學重鎮"},
-   {zh:"Similan",lat:8.650,lon:97.640,mode:"boat",facing:null,note:"每年約10–5月開放"},
-   {zh:"Sipadan",lat:4.115,lon:118.628,mode:"boat",facing:null,note:"需事先申請許可"},
-   {zh:"Dahab 藍洞",lat:28.572,lon:34.537,mode:"shore",facing:90,note:"自潛聖地"},
+   {zh:"Moalboal",lat:9.940,lon:123.370,mode:"shore",facing:270,note:"宿霧",life:"沙丁魚風暴、海龜"},
+   {zh:"Panglao",lat:9.550,lon:123.770,mode:"boat",facing:null,note:"薄荷島",life:"海龜、傑克風暴（Balicasag）"},
+   {zh:"Tulamben",lat:-8.274,lon:115.593,mode:"shore",facing:30,note:"峇里",life:"Liberty 沉船魚群、微距"},
+   {zh:"Amed",lat:-8.336,lon:115.663,mode:"shore",facing:80,note:"峇里；自潛訓練重鎮",life:"珊瑚花園、日本沉船、微距"},
+   {zh:"Nusa Penida",lat:-8.730,lon:115.520,mode:"boat",facing:null,note:"海流強，看船家判斷",life:"鬼蝠魟、翻車魚（7–10月）"},
+   {zh:"沖繩真栄田岬",lat:26.444,lon:127.771,mode:"shore",facing:300,note:"青之洞窟",life:"洞窟光束、熱帶魚群"},
+   {zh:"石垣島",lat:24.450,lon:124.140,mode:"boat",facing:null,note:"",life:"鬼蝠魟（Manta Scramble）"},
+   {zh:"龜島 Koh Tao",lat:10.095,lon:99.840,mode:"boat",facing:null,note:"自潛/水肺教學重鎮",life:"梭魚、鯨鯊偶遇"},
+   {zh:"Similan",lat:8.650,lon:97.640,mode:"boat",facing:null,note:"每年約10–5月開放",life:"軟珊瑚、豹紋鯊"},
+   {zh:"Sipadan",lat:4.115,lon:118.628,mode:"boat",facing:null,note:"需事先申請許可",life:"傑克風暴、隆頭鸚哥軍團、海龜"},
+   {zh:"Dahab 藍洞",lat:28.572,lon:34.537,mode:"shore",facing:90,note:"自潛聖地",life:"藍洞地形、獅子魚、珊瑚牆"},
  ]},
 ];
 
-/* ============ 生物 → 推薦潛點（搜尋欄打生物名觸發；要加生物改這裡）============ */
+/* ============ 生物 → 推薦潛點（要加生物改這裡）============ */
 const SPECIES=[
  {zh:"海龜",emoji:"🐢",names:["海龜","龜","turtle","sea turtle"],spots:[
    {name:"小琉球・美人洞",lat:22.355,lon:120.368,mode:"shore",facing:315,season:"全年",note:"全島海龜密度極高，岸潛就看得到"},
@@ -317,6 +321,14 @@ const SPECIES=[
  ]},
 ];
 
+/* 維基條目對照：中文優先，找不到退英文 */
+const WIKI={
+ "海龜":["海龜","Sea turtle"],"鬼蝠魟":["鬼蝠魟","Manta ray"],"鯨鯊":["鯨鯊","Whale shark"],
+ "沙丁魚風暴":["沙丁魚","Sardine run"],"翻車魚 Mola":["翻車魚","Ocean sunfish"],
+ "長尾鯊":["長尾鯊","Thresher shark"],"雙髻鯊":["雙髻鯊","Hammerhead shark"],
+ "海蛞蝓／微距":["海蛞蝓","Nudibranch"],"豆丁海馬":["巴氏豆丁海馬","Pygmy seahorse"],
+ "無毒水母湖":["水母湖","Jellyfish Lake"]};
+
 /* ============ 評分門檻（校準改這裡）============ */
 const WAVE_STEPS={
  free:[[0.6,0,null],[1.0,1,"浪略高，水面休息/浮球作業較顛"],[1.4,3,"浪偏大，自潛水面恢復吃力"],[1.8,5,"浪大，不利自潛"],[1e9,7,"浪過大"]],
@@ -346,10 +358,9 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const gmapsUrl=(lat,lon)=>`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
 const toast=m=>{$("toast").textContent=m;};
 
-/* 迎風/背風：wdir 為風的來向；facing 為面海方位 */
 function exposure(facing,wdir){
   if(facing==null||wdir==null)return null;
-  const a=Math.abs(((wdir-facing+540)%360)-180); /* 0=正迎風, 180=正背風 */
+  const a=Math.abs(((wdir-facing+540)%360)-180);
   return a<=55?"on":a>=125?"off":"x";
 }
 
@@ -377,10 +388,12 @@ function assess(day,disc,entry,facing){
 }
 
 /* ============ API ============ */
-async function jget(url,{timeout=45000,post=null}={}){
+async function jget(url,{timeout=45000,post=null,headers=null}={}){
   const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),timeout);
   try{
-    const r=await fetch(url,{signal:ctl.signal,...(post?{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:post}:{})});
+    const r=await fetch(url,{signal:ctl.signal,
+      ...(headers?{headers}:{}),
+      ...(post?{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:post}:{})});
     if(!r.ok)throw new Error("HTTP "+r.status);
     return await r.json();
   }finally{clearTimeout(t);}
@@ -393,6 +406,14 @@ async function getMarine(lat,lon){
 const getWeather=(lat,lon)=>jget(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&timezone=auto&forecast_days=16`+
   `&daily=wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,precipitation_sum`);
 const geocode=q=>jget(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=zh&format=json`);
+
+async function fetchWiki(zhT,enT){
+  const one=async(host,title)=>jget(`https://${host}/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
+    {headers:{"Accept-Language":"zh-tw"},timeout:15000});
+  try{return await one("zh.wikipedia.org",zhT);}
+  catch(e){if(enT){try{return await one("en.wikipedia.org",enT);}catch(e2){}}}
+  return null;
+}
 
 const idxDaily=js=>{const d=(js&&js.daily)||{},t=d.time||[],o={};
   t.forEach((day,i)=>{o[day]={};for(const k in d)if(k!=="time")o[day][k]=d[k][i];});return o;};
@@ -413,13 +434,15 @@ function initMap(){
   searchLayer=L.layerGroup().addTo(map);
   REGIONS.forEach(rg=>rg.sites.forEach(s=>addMarker({
     lat:s.lat,lon:s.lon,name:`${rg.name}・${s.zh}`,kind:"內建潛點",
-    mode:s.mode,facing:s.facing,note:s.note},"#3BD6EE",true)));
+    mode:s.mode,facing:s.facing,note:s.note,life:s.life},"#3BD6EE",true)));
 }
 function markerStyle(color){return{radius:7,color:"#04121C",weight:1.5,fillColor:color,fillOpacity:.95};}
 function addMarker(p,color,permanent=false){
   const m=L.circleMarker([p.lat,p.lon],markerStyle(color));
   const el=document.createElement("div");
-  el.innerHTML=`<div class="pop-name">${esc(p.name)}</div><div class="pop-kind">${esc(p.kind)} ・ ${p.lat.toFixed(4)},${p.lon.toFixed(4)}</div>`;
+  el.innerHTML=`<div class="pop-name">${esc(p.name)}</div>
+    <div class="pop-kind">${esc(p.kind)} ・ ${p.lat.toFixed(4)},${p.lon.toFixed(4)}</div>
+    ${p.note?`<div class="pop-note">${esc(p.note)}</div>`:""}`;
   const btns=document.createElement("div");btns.className="pop-btns";
   const b1=document.createElement("button");b1.className="pb main";b1.textContent="查潛況";
   b1.addEventListener("click",()=>{pickTarget(p);map.closePopup();});
@@ -436,12 +459,20 @@ function markSelected(lat,lon){
 }
 
 /* ============ 選定潛點 → 查潛況 ============ */
+function lifeHTML(str){
+  return str.split("、").map(x=>{
+    const t=x.trim();
+    return matchSpecies(t)?`<button class="lifelink" data-sp="${esc(t)}">${esc(t)}</button>`:esc(t);
+  }).join("、");
+}
 function pickTarget(p,{autorun=true}={}){
   target={lat:+(+p.lat).toFixed(4),lon:+(+p.lon).toFixed(4),
-    name:p.name||"自訂座標",note:p.note||"",facing:p.facing??null};
+    name:p.name||"自訂座標",note:p.note||"",facing:p.facing??null,life:p.life||""};
   if(p.mode)setMode(p.mode);
   $("tname").innerHTML=`${esc(target.name)}<small>${target.lat},${target.lon}</small>`;
-  $("tnote").textContent=target.note+(target.facing!=null?`（面海方位 ${target.facing}°，${DIRS_ZH[dirIdx(target.facing)]}向外海）`:"");
+  let tn=esc(target.note)+(target.facing!=null?`（面海方位 ${target.facing}°，${DIRS_ZH[dirIdx(target.facing)]}向外海）`:"");
+  if(target.life)tn+=`<div class="lifeline">🐠 常見生物：${lifeHTML(target.life)}</div>`;
+  $("tnote").innerHTML=tn;
   $("gmap").href=gmapsUrl(target.lat,target.lon);
   markSelected(target.lat,target.lon);
   map.flyTo([target.lat,target.lon],Math.max(map.getZoom(),10),{duration:.8});
@@ -525,25 +556,7 @@ async function run(){
 }
 function showErr(el,msg){el.innerHTML=msg;el.classList.remove("hidden");}
 
-/* ============ 區域 / 潛點 chips ============ */
-function setRegion(idx){
-  const chips=$("chips").children;
-  for(let i=0;i<chips.length;i++)chips[i].classList.toggle("on",i===idx);
-  const rg=REGIONS[idx],sub=$("subchips");
-  sub.innerHTML="";
-  rg.sites.forEach(s=>{
-    const b=document.createElement("button");b.className="chip";b.textContent=s.zh;
-    b.addEventListener("click",()=>pickTarget({lat:s.lat,lon:s.lon,name:`${rg.name}・${s.zh}`,mode:s.mode,facing:s.facing,note:s.note}));
-    sub.appendChild(b);
-  });
-  const bounds=rg.sites.map(s=>[s.lat,s.lon]);
-  if(bounds.length>1)map.fitBounds(bounds,{padding:[40,40],maxZoom:12});
-  else map.flyTo(bounds[0],10,{duration:.8});
-  if(rg.sites.length===1){const s=rg.sites[0];
-    pickTarget({lat:s.lat,lon:s.lon,name:`${rg.name}・${s.zh}`,mode:s.mode,facing:s.facing,note:s.note});}
-}
-
-/* ============ 生物模式 ============ */
+/* ============ 生物 / 資訊卡 ============ */
 function matchSpecies(q){
   const s=q.toLowerCase().replace(/\s+/g,"");
   for(const sp of SPECIES)for(const n of sp.names){
@@ -552,15 +565,33 @@ function matchSpecies(q){
   }
   return null;
 }
-/* 維基條目對照：中文標題優先，找不到退英文 */
-const WIKI={
- "海龜":["海龜","Sea turtle"],"鬼蝠魟":["鬼蝠魟","Manta ray"],"鯨鯊":["鯨鯊","Whale shark"],
- "沙丁魚風暴":["沙丁魚","Sardine run"],"翻車魚 Mola":["翻車魚","Ocean sunfish"],
- "長尾鯊":["長尾鯊","Thresher shark"],"雙髻鯊":["雙髻鯊","Hammerhead shark"],
- "海蛞蝓／微距":["海蛞蝓","Nudibranch"],"豆丁海馬":["巴氏豆丁海馬","Pygmy seahorse"],
- "無毒水母湖":["水母湖","Jellyfish Lake"]};
-
 let wikiSeq=0;
+function resetCard(){
+  const img=$("spImg");img.classList.add("hidden");img.removeAttribute("src");
+  const desc=$("spDesc");desc.classList.add("hidden");desc.classList.remove("open");desc.textContent="";
+  $("spLinks").innerHTML="";$("spChips").innerHTML="";
+}
+function addClearChip(){
+  const x=document.createElement("button");x.className="chip";x.textContent="✕ 清除";
+  x.addEventListener("click",()=>{$("speciesBar").classList.remove("show");searchLayer.clearLayers();});
+  $("spChips").appendChild(x);
+}
+function fillCardFromWiki(js,{alt="",inatQ=null,gcoord=null}={}){
+  const links=$("spLinks");
+  const inat=inatQ?`<a class="pill" href="https://www.inaturalist.org/search?q=${encodeURIComponent(inatQ)}" target="_blank" rel="noopener">iNaturalist 目擊 ↗</a>`:"";
+  const gm=gcoord?`<a class="pill" href="${gmapsUrl(gcoord[0],gcoord[1])}" target="_blank" rel="noopener">Google 地圖 ↗</a>`:"";
+  if(!js){links.innerHTML=inat+gm;return;}
+  const th=(js.thumbnail&&js.thumbnail.source)||(js.originalimage&&js.originalimage.source);
+  if(th){const img=$("spImg");img.src=th;img.alt=alt;img.classList.remove("hidden");}
+  if(js.extract){const d=$("spDesc");d.textContent=js.extract;d.classList.remove("hidden");
+    d.onclick=()=>d.classList.toggle("open");}
+  if(js.description)$("spTitle").insertAdjacentHTML("beforeend",` <small class="sci">${esc(js.description)}</small>`);
+  const wurl=js.content_urls&&js.content_urls.desktop&&js.content_urls.desktop.page;
+  links.innerHTML=(wurl?`<a class="pill" href="${wurl}" target="_blank" rel="noopener">維基百科 ↗</a>`:"")
+    +inat+gm+`<span class="cred">圖文：Wikipedia（CC BY-SA）</span>`;
+}
+
+/* 內建生物 */
 function renderSpecies(sp){
   searchLayer.clearLayers();
   const bounds=[];
@@ -572,12 +603,9 @@ function renderSpecies(sp){
   });
   if(bounds.length>1)map.fitBounds(bounds,{padding:[40,40]});
   else map.flyTo(bounds[0],9,{duration:.8});
-  /* 重置介紹卡 */
-  const img=$("spImg");img.classList.add("hidden");img.removeAttribute("src");
-  const desc=$("spDesc");desc.classList.add("hidden");desc.classList.remove("open");desc.textContent="";
-  $("spLinks").innerHTML="";
+  resetCard();
   $("spTitle").innerHTML=`${sp.emoji} 想看 <b>${esc(sp.zh)}</b>？這些點有穩定目擊（點一下查潛況）：`;
-  const box=$("spChips");box.innerHTML="";
+  const box=$("spChips");
   sp.spots.forEach(s=>{
     const b=document.createElement("button");b.className="chip";
     b.innerHTML=`${esc(s.name)}${s.season?`<small>${esc(s.season)}</small>`:""}`;
@@ -585,77 +613,85 @@ function renderSpecies(sp){
       facing:s.facing??null,note:(s.note||"")+(s.season?`（季節：${s.season}）`:"")}));
     box.appendChild(b);
   });
-  const x=document.createElement("button");x.className="chip";x.textContent="✕ 清除";
-  x.addEventListener("click",()=>{$("speciesBar").classList.remove("show");searchLayer.clearLayers();});
-  box.appendChild(x);
+  addClearChip();
   $("speciesBar").classList.add("show");
   toast(`${sp.zh}：${sp.spots.length} 個推薦點已標上地圖（紫色標記）。`);
-  loadWiki(sp,++wikiSeq);
-}
-
-/* 從維基百科 REST API 抓圖片、簡介、條目連結 */
-async function loadWiki(sp,seq){
+  const seq=++wikiSeq;
   const [zhT,enT]=WIKI[sp.zh]||[sp.zh,null];
-  const tryOne=async(host,title)=>{
-    const r=await fetch(`https://${host}/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
-      {headers:{"Accept-Language":"zh-tw"}});
-    if(!r.ok)throw new Error(r.status);
-    return r.json();
-  };
-  let js=null;
-  try{js=await tryOne("zh.wikipedia.org",zhT);}
-  catch(e){if(enT){try{js=await tryOne("en.wikipedia.org",enT);}catch(e2){}}}
-  if(seq!==wikiSeq)return;            /* 使用者已換搜別的，丟棄舊結果 */
-  const links=$("spLinks");
-  const inat=`<a class="pill" href="https://www.inaturalist.org/search?q=${encodeURIComponent(enT||sp.zh)}" target="_blank" rel="noopener">iNaturalist 目擊 ↗</a>`;
-  if(!js){links.innerHTML=inat;return;}
-  const th=(js.thumbnail&&js.thumbnail.source)||(js.originalimage&&js.originalimage.source);
-  if(th){const img=$("spImg");img.src=th;img.alt=sp.zh;img.classList.remove("hidden");}
-  if(js.extract){const d=$("spDesc");d.textContent=js.extract;d.classList.remove("hidden");
-    d.onclick=()=>d.classList.toggle("open");}
-  if(js.description)$("spTitle").insertAdjacentHTML("beforeend",` <small class="sci">${esc(js.description)}</small>`);
-  const wurl=js.content_urls&&js.content_urls.desktop&&js.content_urls.desktop.page;
-  links.innerHTML=(wurl?`<a class="pill" href="${wurl}" target="_blank" rel="noopener">維基百科 ↗</a>`:"")
-    +inat+`<span class="cred">圖文：Wikipedia（CC BY-SA）</span>`;
+  fetchWiki(zhT,enT).then(js=>{if(seq===wikiSeq)fillCardFromWiki(js,{alt:sp.zh,inatQ:enT||sp.zh});});
 }
 
-/* ============ 搜尋：生物 → 地名/座標 → 地圖 → 撈附近潛點 ============ */
+/* 名單外生物（純維基） */
+function wildSpeciesCard(q,js){
+  resetCard();
+  $("spTitle").innerHTML=`🔎 <b>${esc(q)}</b>`;
+  fillCardFromWiki(js,{alt:q,inatQ:q});
+  addClearChip();
+  $("speciesBar").classList.add("show");
+  toast(`「${q}」不在內建潛點名單——先看介紹，iNaturalist 連結可查全球目擊位置。`);
+}
+
+/* 地點速覽卡 */
+function placeCard(title,js,gcoord){
+  resetCard();
+  $("spTitle").innerHTML=`📍 <b>${esc(title)}</b> 地點速覽`;
+  fillCardFromWiki(js,{alt:title,gcoord});
+  addClearChip();
+  $("speciesBar").classList.add("show");
+}
+
+/* 判斷維基條目像生物還是地點 */
+function classifyWiki(js){
+  if(!js)return null;
+  const t=((js.description||"")+" "+(js.extract||"").slice(0,80)).toLowerCase();
+  const placeRe=/島|市|縣|鎮|村|公園|保護區|海灘|港|湖|灣|群島|城市|首都|地區|國家|行政|island|city|park|beach|bay|lake|town|capital|archipelago|municipality|country/;
+  const orgRe=/魚|鯊|鯨|龜|蝦|蟹|貝|螺|水母|珊瑚|海豚|海牛|海獅|海豹|章魚|烏賊|魷|海馬|海蛞蝓|動物|物種|哺乳|爬蟲|軟體|棘皮|甲殼|一種|之一種|fish|shark|whale|turtle|ray|species|mammal|mollus|coral|octopus|squid|seahorse|nudibranch|animal|genus|family/;
+  if(placeRe.test(t))return"place";
+  if(orgRe.test(t))return"org";
+  return"other";
+}
+
+/* ============ 搜尋主流程：內建生物 → 座標 → 維基/地名 ============ */
 async function doSearch(){
   const q=$("q").value.trim();
-  if(!q){toast("輸入地名、座標或生物名再搜尋。");return;}
+  if(!q){toast("輸入生物、地名、國家或座標。");return;}
   const sp=matchSpecies(q);
   if(sp){renderSpecies(sp);return;}
   const co=q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
-  let lat,lon,label;
-  if(co){lat=+co[1];lon=+co[2];label=`${lat},${lon}`;}
-  else{
-    toast("定位中…");
-    try{
-      const g=await geocode(q);
-      if(!g.results||!g.results.length){toast(`找不到「${q}」，換個寫法試試（中英文都可以）。`);return;}
-      const r=g.results[0];lat=r.latitude;lon=r.longitude;
-      label=[r.name,r.admin1,r.country].filter(Boolean).join(", ");
-    }catch(e){toast("定位服務連不上，稍後再試。");return;}
+  if(co){const lat=+co[1],lon=+co[2];
+    map.flyTo([lat,lon],9,{duration:.8});await findNearby(lat,lon,`${lat},${lon}`);return;}
+
+  toast("搜尋中…");
+  const [geoR,wikiR]=await Promise.allSettled([geocode(q),fetchWiki(q,q)]);
+  const geo=(geoR.status==="fulfilled"&&geoR.value.results&&geoR.value.results[0])||null;
+  const wiki=wikiR.status==="fulfilled"?wikiR.value:null;
+  const kind=classifyWiki(wiki);
+
+  if(kind==="org"){wildSpeciesCard(q,wiki);return;}          /* 2. 名單外生物 */
+
+  if(geo){
+    const label=[geo.name,geo.admin1,geo.country].filter(Boolean).join(", ");
+    if(wiki)placeCard(geo.name,wiki,[geo.latitude,geo.longitude]); /* 3. 地點也給介紹卡 */
+    if((geo.feature_code||"").startsWith("PCL")&&geo.country_code){ /* 1. 國家 → 全國潛點 */
+      await findCountry(geo.country_code,geo.name);
+    }else{
+      map.flyTo([geo.latitude,geo.longitude],9,{duration:.8});
+      await findNearby(geo.latitude,geo.longitude,label);
+    }
+    return;
   }
-  map.flyTo([lat,lon],9,{duration:.8});
-  await findNearby(lat,lon,label);
+  if(wiki){                                                   /* 地名沒中但維基有：用條目座標救援 */
+    const c=wiki.coordinates;
+    placeCard((wiki.titles&&wiki.titles.normalized)||q,wiki,c?[c.lat,c.lon]:null);
+    if(c){map.flyTo([c.lat,c.lon],10,{duration:.8});await findNearby(c.lat,c.lon,q);}
+    else toast("找到條目但沒有座標——看上方介紹，或改用更精確的地名。");
+    return;
+  }
+  toast(`找不到「${q}」，換個寫法試試，或直接點地圖任意處查潛況。`);
 }
-async function findNearby(lat,lon,label){
-  const radKm=+$("rad").value,r=radKm*1000;
-  toast(`已定位 ${label}，搜尋 ${radKm} km 內潛點…`);
-  const q=`[out:json][timeout:60];(
-    node["sport"="scuba_diving"](around:${r},${lat},${lon});
-    way["sport"="scuba_diving"](around:${r},${lat},${lon});
-    node["sport"~"^(freediving|free_diving)$"](around:${r},${lat},${lon});
-    node["leisure"="dive_centre"](around:${r},${lat},${lon});
-    way["leisure"="dive_centre"](around:${r},${lat},${lon});
-  );out center tags;`;
-  let js;
-  try{js=await jget("https://overpass-api.de/api/interpreter",{post:"data="+encodeURIComponent(q),timeout:90000});}
-  catch(e){
-    try{js=await jget("https://overpass.kumi.systems/api/interpreter",{post:"data="+encodeURIComponent(q),timeout:90000});}
-    catch(e2){toast("潛點資料庫忙碌中，等幾十秒再搜一次。也可以直接點地圖任意處查潛況。");return;}
-  }
+
+/* OSM 結果共用渲染 */
+function renderOsmResults(js){
   searchLayer.clearLayers();
   const seen=new Set();let n=0;const bounds=[];
   for(const el of js.elements||[]){
@@ -670,9 +706,62 @@ async function findNearby(lat,lon,label){
     addMarker({lat:la,lon:lo,name:nm,kind},isCentre?"#F5C542":isFree?"#3DD68C":"#7FD9F2");
     bounds.push([la,lo]);n++;
   }
-  if(n){toast(`找到 ${n} 個地點（藍＝潛點、綠＝自潛、黃＝潛店），點標記查潛況。`);
-    if(bounds.length>1)map.fitBounds(bounds,{padding:[36,36],maxZoom:12});}
-  else toast(`這一帶 OSM 沒有標記潛點。可加大半徑，或直接點地圖查該處海況。`);
+  if(bounds.length>1)map.fitBounds(bounds,{padding:[36,36],maxZoom:12});
+  return n;
+}
+async function overpass(q,timeout=90000){
+  try{return await jget("https://overpass-api.de/api/interpreter",{post:"data="+encodeURIComponent(q),timeout});}
+  catch(e){return await jget("https://overpass.kumi.systems/api/interpreter",{post:"data="+encodeURIComponent(q),timeout});}
+}
+async function findNearby(lat,lon,label){
+  const radKm=+$("rad").value,r=radKm*1000;
+  toast(`已定位 ${label}，搜尋 ${radKm} km 內潛點…`);
+  const q=`[out:json][timeout:60];(
+    node["sport"="scuba_diving"](around:${r},${lat},${lon});
+    way["sport"="scuba_diving"](around:${r},${lat},${lon});
+    node["sport"~"^(freediving|free_diving)$"](around:${r},${lat},${lon});
+    node["leisure"="dive_centre"](around:${r},${lat},${lon});
+    way["leisure"="dive_centre"](around:${r},${lat},${lon});
+  );out center tags;`;
+  let js;
+  try{js=await overpass(q);}
+  catch(e){toast("潛點資料庫忙碌中，等幾十秒再搜一次；也可直接點地圖任意處查潛況。");return;}
+  const n=renderOsmResults(js);
+  toast(n?`找到 ${n} 個地點（藍＝潛點、綠＝自潛、黃＝潛店），點標記查潛況。`
+        :`這一帶 OSM 沒有標記潛點。可加大半徑，或直接點地圖查該處海況。`);
+}
+async function findCountry(iso,label){
+  toast(`搜尋 ${label} 全國潛點（範圍大，可能要 10–30 秒）…`);
+  const q=`[out:json][timeout:120];
+    area["ISO3166-1"="${iso.toUpperCase()}"][admin_level=2]->.a;(
+    nwr["sport"="scuba_diving"](area.a);
+    node["sport"~"^(freediving|free_diving)$"](area.a);
+    nwr["leisure"="dive_centre"](area.a);
+  );out center tags 600;`;
+  let js;
+  try{js=await overpass(q,150000);}
+  catch(e){toast("全國查詢逾時或伺服器忙碌——改搜城市名（範圍小很多），或稍後再試。");return;}
+  const n=renderOsmResults(js);
+  toast(n?`${label}：找到 ${n} 個潛點/潛店（最多顯示600筆），點標記查潛況。`
+        :`${label} 在 OSM 上沒有標記的潛點——OSM 各國涵蓋度不一，可改搜城市名。`);
+}
+
+/* ============ 區域 / 潛點 chips ============ */
+function setRegion(idx){
+  const chips=$("chips").children;
+  for(let i=0;i<chips.length;i++)chips[i].classList.toggle("on",i===idx);
+  const rg=REGIONS[idx],sub=$("subchips");
+  sub.innerHTML="";
+  rg.sites.forEach(s=>{
+    const b=document.createElement("button");b.className="chip";b.textContent=s.zh;
+    b.addEventListener("click",()=>pickTarget({lat:s.lat,lon:s.lon,name:`${rg.name}・${s.zh}`,mode:s.mode,facing:s.facing,note:s.note,life:s.life}));
+    sub.appendChild(b);
+  });
+  const bounds=rg.sites.map(s=>[s.lat,s.lon]);
+  if(bounds.length>1)map.fitBounds(bounds,{padding:[40,40],maxZoom:12});
+  else map.flyTo(bounds[0],10,{duration:.8});
+  if(rg.sites.length===1){const s=rg.sites[0];
+    pickTarget({lat:s.lat,lon:s.lon,name:`${rg.name}・${s.zh}`,mode:s.mode,facing:s.facing,note:s.note,life:s.life});}
 }
 
 /* ============ 初始化 ============ */
@@ -691,6 +780,10 @@ async function findNearby(lat,lon,label){
   $("q").addEventListener("keydown",e=>{if(e.key==="Enter")doSearch();});
   $("mShore").addEventListener("click",()=>setMode("shore"));
   $("mBoat").addEventListener("click",()=>setMode("boat"));
+  $("tnote").addEventListener("click",e=>{
+    const b=e.target.closest(".lifelink");if(!b)return;
+    const sp=matchSpecies(b.dataset.sp);if(sp)renderSpecies(sp);
+  });
   $("loc").addEventListener("click",()=>{
     if(!navigator.geolocation){toast("這個環境不支援定位。");return;}
     toast("取得定位中…");
@@ -714,9 +807,9 @@ async function findNearby(lat,lon,label){
       return;
     }
   }
-  setRegion(0); /* 小琉球 */
+  setRegion(0);
   const s=REGIONS[0].sites[0];
-  pickTarget({lat:s.lat,lon:s.lon,name:`${REGIONS[0].name}・${s.zh}`,mode:s.mode,facing:s.facing,note:s.note});
+  pickTarget({lat:s.lat,lon:s.lon,name:`${REGIONS[0].name}・${s.zh}`,mode:s.mode,facing:s.facing,note:s.note,life:s.life});
 })();
 </script>
 </body>
