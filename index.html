@@ -144,6 +144,17 @@ footer a{color:var(--ink-dim)}
 .pop-btns .pb{flex:1;text-align:center;padding:7px 8px;border-radius:9px;font-size:12.5px;text-decoration:none;cursor:pointer;border:0;font-family:var(--sans)}
 .pb.main{background:var(--accent);color:var(--accent-ink);font-weight:700}
 .pb.gh{background:rgba(59,214,238,.12);color:var(--accent);border:1px solid rgba(59,214,238,.4)}
+
+.chip.add{border-style:dashed;color:var(--g-good);border-color:rgba(61,214,140,.5)}
+dialog#sg{background:var(--card-solid);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:18px;max-width:440px;width:92vw;font-family:var(--sans)}
+dialog#sg::backdrop{background:rgba(2,10,16,.72)}
+#sg h3{font-size:16px;margin-bottom:12px}
+#sg .frow{display:flex;gap:8px;margin-bottom:10px}
+#sg .frow>div{flex:1;min-width:0}
+#sg label{display:block;font-size:11.5px;color:var(--ink-dim);margin-bottom:4px}
+#sg input,#sg select{width:100%;padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:rgba(4,26,36,.7);color:var(--ink);font-size:14px;font-family:var(--sans)}
+#sg pre{white-space:pre-wrap;word-break:break-all;background:rgba(3,18,28,.8);border:1px solid var(--line);border-radius:9px;padding:9px;font-size:11px;font-family:var(--mono);margin:10px 0}
+#sg .note{font-size:11px;color:var(--ink-dim);line-height:1.6;margin-top:8px}
 </style>
 </head>
 <body>
@@ -207,6 +218,35 @@ footer a{color:var(--ink-dim)}
     <div id="out"><div class="empty">還沒選潛點。<br>點地圖上的標記、按上方快選，或搜尋一個地方。</div></div>
   </div>
 </div>
+
+<dialog id="sg">
+  <h3>➕ 建議一個潛點</h3>
+  <div class="frow"><div><label for="sgRegion">區域</label><select id="sgRegion"></select></div>
+    <div><label for="sgName">名稱＊</label><input id="sgName" placeholder="例：後壁湖出水口"></div></div>
+  <div class="frow">
+    <div><label for="sgLat">緯度＊</label><input id="sgLat" inputmode="decimal" placeholder="21.930"></div>
+    <div><label for="sgLon">經度＊</label><input id="sgLon" inputmode="decimal" placeholder="120.750"></div>
+    <div style="flex:.9;align-self:flex-end"><button type="button" class="btn ghost" id="sgUse" style="width:100%;padding:9px">帶入目前選點</button></div>
+  </div>
+  <div class="frow">
+    <div><label for="sgMode">型態</label><select id="sgMode"><option value="shore">岸潛</option><option value="boat">船潛</option></select></div>
+    <div><label for="sgFacing">面海方位 0–359（選填）</label><input id="sgFacing" inputmode="numeric" placeholder="例：270＝面西"></div>
+  </div>
+  <div class="frow"><div><label for="sgLife">常見生物（選填，用「、」分隔）</label><input id="sgLife" placeholder="海龜、海蛞蝓"></div></div>
+  <div class="frow"><div><label for="sgNote">備註（選填）</label><input id="sgNote" placeholder="進出點、季節提醒…"></div></div>
+  <div class="frow">
+    <button type="button" class="btn" id="sgGo" style="flex:1">加入並產生建議</button>
+    <button type="button" class="btn ghost" id="sgCancel">關閉</button>
+  </div>
+  <div id="sgOut" class="hidden">
+    <pre id="sgSnip"></pre>
+    <div class="frow">
+      <button type="button" class="btn ghost" id="sgCopy" style="flex:1">複製片段</button>
+      <a class="btn" id="sgIssue" target="_blank" rel="noopener" style="flex:1;text-align:center;text-decoration:none">到 GitHub 送出 ↗</a>
+    </div>
+    <div class="note">這個點已加進<b>你目前的畫面</b>（綠色標記），重新整理會消失；送出後由站長審核合併，才會對所有人永久出現。</div>
+  </div>
+</dialog>
 
 <footer>
   預報 <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>（CC BY 4.0）・
@@ -621,14 +661,68 @@ function renderSpecies(sp){
   fetchWiki(zhT,enT).then(js=>{if(seq===wikiSeq)fillCardFromWiki(js,{alt:sp.zh,inatQ:enT||sp.zh});});
 }
 
-/* 名單外生物（純維基） */
+/* 名單外生物（維基卡 + iNaturalist 目擊熱區） */
 function wildSpeciesCard(q,js){
   resetCard();
+  const seq=++wikiSeq;
   $("spTitle").innerHTML=`🔎 <b>${esc(q)}</b>`;
   fillCardFromWiki(js,{alt:q,inatQ:q});
   addClearChip();
   $("speciesBar").classList.add("show");
-  toast(`「${q}」不在內建潛點名單——先看介紹，iNaturalist 連結可查全球目擊位置。`);
+  toast(`「${q}」不在內建名單——正在從 iNaturalist 整理全球目擊熱區…`);
+  loadINat(q,js,seq);
+}
+/* 依研究級目擊紀錄自動聚合熱區（約 55km 網格） */
+async function loadINat(q,wiki,seq){
+  const box=$("spChips");
+  const loading=document.createElement("span");loading.className="cred";loading.textContent="整理全球目擊熱區中…";
+  box.prepend(loading);
+  try{
+    let taxa=await jget(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(q)}&per_page=1`,{timeout:20000});
+    let tx=taxa.results&&taxa.results[0];
+    if(!tx&&wiki&&wiki.titles&&wiki.titles.normalized&&wiki.titles.normalized!==q){
+      taxa=await jget(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(wiki.titles.normalized)}&per_page=1`,{timeout:20000});
+      tx=taxa.results&&taxa.results[0];
+    }
+    if(seq!==wikiSeq)return;
+    if(!tx){loading.textContent="iNaturalist 找不到這個名稱——試試英文名或學名。";return;}
+    const obs=await jget(`https://api.inaturalist.org/v1/observations?taxon_id=${tx.id}&quality_grade=research&captive=false&per_page=200`,{timeout:25000});
+    if(seq!==wikiSeq)return;
+    const buckets={};
+    for(const o of obs.results||[]){
+      if(!o.geojson||!o.geojson.coordinates)continue;
+      const[lo,la]=o.geojson.coordinates;
+      const k=Math.round(la*2)/2+","+Math.round(lo*2)/2;
+      const b=(buckets[k]=buckets[k]||{n:0,la:0,lo:0,places:{}});
+      b.n++;b.la+=la;b.lo+=lo;
+      const pg=(o.place_guess||"").split(",")[0].trim();
+      if(pg)b.places[pg]=(b.places[pg]||0)+1;
+    }
+    const top=Object.values(buckets).filter(b=>b.n>=2)
+      .sort((a,b)=>b.n-a.n).slice(0,6)
+      .map(b=>{const la=b.la/b.n,lo=b.lo/b.n;
+        const name=(Object.entries(b.places).sort((x,y)=>y[1]-x[1])[0]||[])[0]||`${la.toFixed(2)},${lo.toFixed(2)}`;
+        return{name,la,lo,n:b.n};});
+    loading.remove();
+    if(!top.length){
+      const s=document.createElement("span");s.className="cred";s.textContent="研究級目擊太少，無法整理熱區——點上方 iNaturalist 連結看原始紀錄。";
+      box.prepend(s);return;
+    }
+    const label=document.createElement("div");label.className="cred";label.style.width="100%";
+    label.textContent="🌍 目擊熱區（依 iNaturalist 研究級紀錄自動整理，非策展潛點，點一下查潛況）：";
+    box.prepend(label);
+    const clear=box.lastElementChild; /* ✕ 清除 */
+    top.forEach(s=>{
+      const b=document.createElement("button");b.className="chip";
+      b.innerHTML=`${esc(s.name)}<small>${s.n} 筆</small>`;
+      b.addEventListener("click",()=>pickTarget({lat:s.la,lon:s.lo,name:`${q}熱區・${s.name}`,
+        note:`iNaturalist 研究級目擊約 ${s.n} 筆（熱區中心點，非確切潛點，實際下水點請洽在地）`}));
+      addMarker({lat:s.la,lon:s.lo,name:`${q}・${s.name}`,kind:`🌍 目擊熱區・${s.n} 筆`},"#C58CF2");
+      box.insertBefore(b,clear);
+    });
+    map.fitBounds(top.map(s=>[s.la,s.lo]),{padding:[40,40]});
+    toast(`「${q}」整理出 ${top.length} 個目擊熱區（紫色標記），點了直接看潛況。`);
+  }catch(e){if(seq===wikiSeq)loading.textContent="目擊資料抓取失敗，稍後再試。";}
 }
 
 /* 地點速覽卡 */
@@ -746,6 +840,60 @@ async function findCountry(iso,label){
         :`${label} 在 OSM 上沒有標記的潛點——OSM 各國涵蓋度不一，可改搜城市名。`);
 }
 
+/* ============ 社群建議潛點（本次瀏覽即時生效＋GitHub 審核合併）============ */
+const REPO="sean19950831cg/dive_forecast";
+function addSuggested(regionName,site){
+  let idx=REGIONS.findIndex(r=>r.name===regionName);
+  if(idx<0){
+    REGIONS.push({name:regionName,sites:[]});idx=REGIONS.length-1;
+    const b=document.createElement("button");b.className="chip";b.textContent=regionName;
+    b.addEventListener("click",()=>setRegion(idx));
+    $("chips").insertBefore(b,$("chips").querySelector(".chip.add"));
+  }
+  REGIONS[idx].sites.push(site);
+  addMarker({lat:site.lat,lon:site.lon,name:`${regionName}・${site.zh}`,kind:"社群建議（本次瀏覽暫存）",
+    mode:site.mode,facing:site.facing,note:site.note,life:site.life},"#3DD68C",true);
+  setRegion(idx);
+  pickTarget({lat:site.lat,lon:site.lon,name:`${regionName}・${site.zh}`,mode:site.mode,facing:site.facing,note:site.note,life:site.life});
+}
+function setupSuggest(){
+  const dg=$("sg"),sel=$("sgRegion");
+  REGIONS.forEach(r=>sel.insertAdjacentHTML("beforeend",`<option>${esc(r.name)}</option>`));
+  sel.insertAdjacentHTML("beforeend",`<option value="社群建議">社群建議（新分類）</option>`);
+  $("suggestOpen").addEventListener("click",()=>{
+    if(target){$("sgLat").value=target.lat;$("sgLon").value=target.lon;}
+    $("sgOut").classList.add("hidden");dg.showModal();
+  });
+  $("sgCancel").addEventListener("click",()=>dg.close());
+  $("sgUse").addEventListener("click",()=>{if(target){$("sgLat").value=target.lat;$("sgLon").value=target.lon;}});
+  $("sgGo").addEventListener("click",()=>{
+    const esq=s=>s.replace(/"/g,'\\"');
+    const rg=sel.value||"社群建議";
+    const name=$("sgName").value.trim();
+    const lat=parseFloat($("sgLat").value),lon=parseFloat($("sgLon").value);
+    const md=$("sgMode").value;
+    const fcRaw=$("sgFacing").value.trim();
+    const fc=fcRaw===""?null:Math.round(+fcRaw);
+    const life=$("sgLife").value.trim(),note=$("sgNote").value.trim();
+    if(!name){alert("名稱必填");return;}
+    if(!(lat>=-90&&lat<=90&&lon>=-180&&lon<=180)){alert("座標範圍不對（緯度 ±90、經度 ±180）");return;}
+    if(fc!=null&&!(fc>=0&&fc<360)){alert("面海方位需 0–359");return;}
+    const site={zh:name,lat:+lat.toFixed(4),lon:+lon.toFixed(4),mode:md,facing:fc,note,life};
+    addSuggested(rg,site);
+    const snip=`{zh:"${esq(name)}",lat:${site.lat},lon:${site.lon},mode:"${md}",facing:${fc==null?"null":fc},note:"${esq(note)}",life:"${esq(life)}"},`;
+    $("sgSnip").textContent=snip;
+    const bodyText=`區域：${rg}\n名稱：${name}\n座標：${site.lat},${site.lon}\n型態：${md==="shore"?"岸潛":"船潛"}／面海方位：${fc==null?"未填":fc}\n常見生物：${life||"—"}\n備註：${note||"—"}\n\n可直接貼進 REGIONS 的片段：\n\`\`\`js\n${snip}\n\`\`\``;
+    $("sgIssue").href=`https://github.com/${REPO}/issues/new?title=${encodeURIComponent("[潛點建議] "+rg+"・"+name)}&body=${encodeURIComponent(bodyText)}`;
+    $("sgOut").classList.remove("hidden");
+    toast(`「${name}」已加進你目前的畫面（綠色標記）；送出建議後由站長合併才會永久收錄。`);
+  });
+  $("sgCopy").addEventListener("click",async()=>{
+    try{await navigator.clipboard.writeText($("sgSnip").textContent);
+      $("sgCopy").textContent="已複製 ✓";setTimeout(()=>$("sgCopy").textContent="複製片段",1500);}
+    catch(e){alert("複製失敗，請長按手動選取。");}
+  });
+}
+
 /* ============ 區域 / 潛點 chips ============ */
 function setRegion(idx){
   const chips=$("chips").children;
@@ -773,6 +921,9 @@ function setRegion(idx){
     b.addEventListener("click",()=>setRegion(i));
     chips.appendChild(b);
   });
+  const add=document.createElement("button");add.className="chip add";add.id="suggestOpen";add.textContent="＋ 建議潛點";
+  chips.appendChild(add);
+  setupSuggest();
   const today=new Date();
   $("d1").value=iso(today);$("d2").value=iso(addD(today,6));
   $("go").addEventListener("click",run);
