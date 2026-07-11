@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>潛況 Dive Forecast — 查潛點、看浪況、自潛水肺分開評</title>
+<meta name="description" content="輸入地名或點地圖找潛點，看未來 7–16 天浪高、風速、海溫，自潛與水肺分開評分，一鍵開 Google 地圖。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --surface:#A5E8EE; --shallow:#12809A; --deep:#072A3A; --abyss:#04121C;
+  --ink:#EAF7F9; --ink-dim:#9CC6CF; --line:rgba(150,220,230,.16);
+  --card:rgba(10,44,58,.72); --card-solid:#0A2C3A;
+  --accent:#3BD6EE; --accent-ink:#04222E;
+  --g-good:#3DD68C; --g-ok:#F5C542; --g-meh:#F58E42; --g-bad:#F26D6D;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --sans:"Noto Sans TC",system-ui,-apple-system,"PingFang TC",sans-serif;
+  --serif:"Noto Serif TC",serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+body{font-family:var(--sans);color:var(--ink);min-height:100vh;
+  background:linear-gradient(180deg,var(--surface) 0%,#3FAEC0 5%,var(--shallow) 13%,#0B455B 30%,var(--deep) 55%,var(--abyss) 100%);
+  background-attachment:fixed}
+.caustics{position:fixed;inset:0 0 auto 0;height:200px;pointer-events:none;opacity:.5;z-index:0;
+  background:radial-gradient(ellipse 55% 45% at 18% 0%,rgba(255,255,255,.4),transparent 70%),
+             radial-gradient(ellipse 45% 40% at 72% 0%,rgba(255,255,255,.28),transparent 70%);
+  animation:sway 10s ease-in-out infinite alternate}
+@keyframes sway{from{transform:translateX(-3%)}to{transform:translateX(3%) scaleY(1.06)}}
+@media (prefers-reduced-motion:reduce){.caustics{animation:none}}
+
+.wrap{max-width:1120px;margin:0 auto;padding:22px 16px calc(44px + env(safe-area-inset-bottom));position:relative;z-index:1}
+header{text-align:center;padding:6px 0 18px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.34em;color:#063241;font-weight:600}
+h1{font-family:var(--serif);font-weight:900;font-size:40px;color:#04283A;letter-spacing:.14em;line-height:1.1;margin-top:2px}
+.sub{margin-top:6px;font-size:13.5px;color:#0A4256}
+
+/* 搜尋列 */
+.searchbar{max-width:640px;margin:0 auto 12px;display:flex;gap:8px}
+.searchbar input{flex:1;padding:13px 14px;border-radius:12px;border:1px solid var(--line);
+  background:rgba(4,26,36,.78);color:var(--ink);font-size:16px}
+.searchbar select{width:96px;padding:0 8px;border-radius:12px;border:1px solid var(--line);
+  background:rgba(4,26,36,.78);color:var(--ink-dim);font-size:13px}
+.btn{padding:12px 16px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);
+  font-size:15px;font-weight:700;cursor:pointer;font-family:var(--sans);white-space:nowrap}
+.btn.ghost{background:rgba(59,214,238,.12);color:var(--accent);border:1px solid rgba(59,214,238,.4)}
+.btn:disabled{opacity:.55}
+input:focus,select:focus,button:focus-visible,.chip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* 快選 chips */
+.chips{max-width:900px;margin:0 auto 14px;display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;-webkit-overflow-scrolling:touch}
+.chip{flex:0 0 auto;padding:8px 13px;border-radius:99px;border:1px solid var(--line);
+  background:rgba(10,44,58,.6);color:var(--ink-dim);font-size:13px;cursor:pointer;font-family:var(--sans)}
+.chip:hover{color:var(--accent);border-color:rgba(59,214,238,.5)}
+
+/* 主版面 */
+.layout{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:940px){.layout{grid-template-columns:minmax(380px,1fr) minmax(420px,1fr)}
+  .mapcol{position:sticky;top:16px;align-self:start}}
+#map{width:100%;height:300px;border-radius:16px;border:1px solid var(--line);z-index:1;background:#0a1620}
+@media(min-width:940px){#map{height:calc(100vh - 32px);min-height:480px}}
+.toast{margin-top:8px;font-size:12.5px;color:var(--ink-dim);font-family:var(--mono);min-height:18px}
+
+/* 預報面板 */
+.panel{background:var(--card);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 12px 32px rgba(0,8,14,.35)}
+.target{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.tname{font-size:19px;font-weight:700}
+.tname small{font-family:var(--mono);font-size:11px;color:var(--ink-dim);font-weight:400;margin-left:8px}
+.gmap{font-size:12.5px;color:var(--accent);text-decoration:none;border:1px solid rgba(59,214,238,.4);
+  border-radius:99px;padding:4px 11px;white-space:nowrap}
+.tnote{margin-top:6px;font-size:12.5px;color:var(--ink-dim)}
+.controls{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;flex:0 0 auto}
+.seg button{padding:9px 13px;background:transparent;border:0;color:var(--ink-dim);font-size:13.5px;cursor:pointer;font-family:var(--sans)}
+.seg button.on{background:rgba(59,214,238,.16);color:var(--accent);font-weight:700}
+.controls input[type=date]{padding:8px 10px;border-radius:10px;border:1px solid var(--line);
+  background:rgba(4,26,36,.7);color:var(--ink);font-size:14px;flex:1;min-width:130px}
+.hint{margin-top:10px;font-size:11.5px;color:var(--ink-dim);line-height:1.7}
+.banner{margin-top:12px;padding:11px 13px;border-radius:12px;font-size:13px;line-height:1.6;
+  background:rgba(242,109,109,.13);border:1px solid rgba(242,109,109,.4)}
+.hidden{display:none!important}
+.best{margin-top:12px;padding:10px 13px;border-radius:12px;font-size:13.5px;
+  background:rgba(61,214,140,.12);border:1px solid rgba(61,214,140,.4)}
+
+/* 日卡片 */
+.day{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 14px 12px;margin-top:12px}
+.day.pickday{border-color:rgba(61,214,140,.55)}
+.dhead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.dtitle{font-size:16.5px;font-weight:700}
+.dtitle small{font-size:12.5px;color:var(--ink-dim);font-weight:400;margin-left:6px}
+.tag{font-size:11px;color:var(--g-good);border:1px solid rgba(61,214,140,.5);border-radius:99px;padding:2px 9px}
+.verdicts{display:flex;gap:8px;margin-bottom:10px}
+.v{flex:1;border-radius:11px;padding:8px 10px;border:1px solid var(--line);background:rgba(4,26,36,.5)}
+.v .who{font-size:10.5px;color:var(--ink-dim);letter-spacing:.12em}
+.v .what{font-size:15px;font-weight:700;margin-top:2px}
+.c-good{color:var(--g-good)}.c-ok{color:var(--g-ok)}.c-meh{color:var(--g-meh)}.c-bad{color:var(--g-bad)}.c-na{color:var(--ink-dim)}
+.gauges{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-family:var(--mono)}
+@media(max-width:380px){.gauges{grid-template-columns:repeat(3,1fr)}}
+.g{background:rgba(3,18,28,.75);border:1px solid var(--line);border-radius:9px;padding:7px 8px;min-width:0}
+.g b{display:block;font-size:8.5px;letter-spacing:.16em;color:var(--ink-dim);font-weight:500}
+.g span{display:block;font-size:13.5px;font-weight:600;margin-top:2px;white-space:nowrap}
+.g i{font-style:normal;font-size:10px;color:var(--ink-dim)}
+.reasons{margin-top:10px;font-size:12.5px;color:var(--ink-dim);line-height:1.7}
+.reasons b{color:var(--ink);font-weight:500}
+.empty{margin-top:12px;padding:26px 16px;text-align:center;color:var(--ink-dim);font-size:13.5px;
+  border:1px dashed var(--line);border-radius:16px;line-height:1.9}
+footer{margin-top:28px;font-size:11.5px;color:var(--ink-dim);line-height:1.9;font-family:var(--mono);text-align:center}
+footer a{color:var(--ink-dim)}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;vertical-align:-2px;animation:rot .7s linear infinite;margin-right:7px}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+/* Leaflet 深色化 */
+.leaflet-popup-content-wrapper{background:var(--card-solid);color:var(--ink);border-radius:12px;border:1px solid var(--line)}
+.leaflet-popup-tip{background:var(--card-solid)}
+.leaflet-popup-content{margin:12px 14px;font-family:var(--sans);font-size:13.5px;line-height:1.6}
+.leaflet-container a.leaflet-popup-close-button{color:var(--ink-dim)}
+.pop-name{font-weight:700;font-size:14.5px}
+.pop-kind{font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);letter-spacing:.1em;margin:2px 0 8px}
+.pop-btns{display:flex;gap:6px}
+.pop-btns .pb{flex:1;text-align:center;padding:7px 8px;border-radius:9px;font-size:12.5px;text-decoration:none;cursor:pointer;border:0;font-family:var(--sans)}
+.pb.main{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.pb.gh{background:rgba(59,214,238,.12);color:var(--accent);border:1px solid rgba(59,214,238,.4)}
+</style>
+</head>
+<body>
+<div class="caustics" aria-hidden="true"></div>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">DIVE FORECAST</div>
+  <h1>潛況</h1>
+  <div class="sub">搜地名找潛點，看浪況適不適合下水——自潛、水肺分開評</div>
+</header>
+
+<div class="searchbar">
+  <input id="q" type="search" placeholder="輸入地名或座標（宿霧、Amed、9.94,123.37…）" autocomplete="off">
+  <select id="rad" title="搜尋半徑">
+    <option value="10">10 km</option><option value="30" selected>30 km</option>
+    <option value="50">50 km</option><option value="100">100 km</option>
+  </select>
+  <button class="btn" id="qgo">搜尋</button>
+  <button class="btn ghost" id="loc" title="用我的位置">📍</button>
+</div>
+
+<div class="chips" id="chips" aria-label="快速選擇潛點"></div>
+
+<div class="layout">
+  <div class="mapcol">
+    <div id="map" role="application" aria-label="潛點地圖"></div>
+    <div class="toast" id="toast">地圖點潛點標記，或直接搜尋地名。</div>
+  </div>
+
+  <div>
+    <section class="panel" aria-label="潛況查詢">
+      <div class="target">
+        <div class="tname" id="tname">—</div>
+        <a class="gmap" id="gmap" target="_blank" rel="noopener">Google 地圖 ↗</a>
+      </div>
+      <div class="tnote" id="tnote"></div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="岸潛或船潛">
+          <button type="button" id="mShore" class="on">岸潛</button>
+          <button type="button" id="mBoat">船潛</button>
+        </div>
+        <input type="date" id="d1"><input type="date" id="d2">
+        <button class="btn" id="go">查潛況</button>
+      </div>
+      <div class="hint">海象預報約 7–8 天、天氣 16 天（Open-Meteo）。預報為外海格點，灣內／背風面通常更平，分數偏保守；下水前以現場與在地店家判斷為準。</div>
+      <div id="err" class="banner hidden" role="alert"></div>
+    </section>
+    <div id="out"><div class="empty">還沒選潛點。<br>點地圖上的標記、按上方快選，或搜尋一個地方。</div></div>
+  </div>
+</div>
+
+<footer>
+  預報 <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>（CC BY 4.0）・
+  潛點與圖資 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors ・ © CARTO<br>
+  評分僅供行前參考，不取代現場風險評估與專業訓練。
+</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+"use strict";
+/* ============ 內建潛點（與 CLI dive_forecast.py 同步） ============ */
+const SITES=[
+ {zh:"龍洞",en:"Longdong",lat:25.107,lon:121.921,mode:"shore",note:"東北角自潛/岸潛熱點；10–4月東北季風常大浪"},
+ {zh:"小琉球",en:"Xiaoliuqiu",lat:22.340,lon:120.370,mode:"shore",note:"海龜；夏季留意西南風湧浪"},
+ {zh:"墾丁",en:"Kenting",lat:21.940,lon:120.744,mode:"shore",note:"後壁湖；冬季受東北季風影響相對小"},
+ {zh:"綠島",en:"Green Island",lat:22.660,lon:121.490,mode:"boat",note:"能見度佳；冬季船班易受浪況影響"},
+ {zh:"蘭嶼",en:"Orchid Island",lat:22.045,lon:121.550,mode:"boat",note:"季風強時海空交通易停駛"},
+ {zh:"澎湖",en:"Penghu",lat:23.565,lon:119.580,mode:"boat",note:"夏季為主；冬季東北季風大"},
+ {zh:"Moalboal",en:"Cebu",lat:9.940,lon:123.370,mode:"shore",note:"沙丁魚風暴；自潛/水肺皆熱門"},
+ {zh:"Panglao",en:"Bohol",lat:9.550,lon:123.770,mode:"boat",note:"Balicasag 船潛"},
+ {zh:"Tulamben",en:"Bali",lat:-8.274,lon:115.593,mode:"shore",note:"Liberty 沉船岸潛"},
+ {zh:"Amed",en:"Bali",lat:-8.336,lon:115.663,mode:"shore",note:"自潛訓練重鎮"},
+ {zh:"Nusa Penida",en:"Bali",lat:-8.730,lon:115.520,mode:"boat",note:"Manta/Mola；海流強，看船家判斷"},
+ {zh:"沖繩真栄田岬",en:"Okinawa",lat:26.444,lon:127.771,mode:"shore",note:"青之洞窟"},
+ {zh:"石垣島",en:"Ishigaki",lat:24.450,lon:124.140,mode:"boat",note:"Manta Scramble"},
+ {zh:"龜島",en:"Koh Tao",lat:10.095,lon:99.840,mode:"boat",note:"自潛/水肺教學重鎮"},
+ {zh:"Similan",en:"Thailand",lat:8.650,lon:97.640,mode:"boat",note:"每年約10–5月開放"},
+ {zh:"Sipadan",en:"Malaysia",lat:4.115,lon:118.628,mode:"boat",note:"需事先申請許可"},
+ {zh:"Dahab 藍洞",en:"Egypt",lat:28.572,lon:34.537,mode:"shore",note:"自潛聖地"},
+];
+
+/* ============ 評分門檻（與 CLI 同步；校準改這裡） ============ */
+const WAVE_STEPS={
+ free:[[0.6,0,null],[1.0,1,"浪略高，水面休息/浮球作業較顛"],[1.4,3,"浪偏大，自潛水面恢復吃力"],[1.8,5,"浪大，不利自潛"],[1e9,7,"浪過大"]],
+ scuba_shore:[[0.9,0,null],[1.3,1,"岸潛進出點需小心"],[1.8,3,"岸潛進出困難"],[2.3,5,"浪大"],[1e9,7,"浪過大"]],
+ scuba_boat:[[1.2,0,null],[1.8,1,"船上較晃"],[2.3,3,"易暈船，下水點可能更動"],[2.8,5,"浪大，船班可能取消"],[1e9,7,"浪過大"]],
+};
+const WIND_STEPS={
+ free:[[16,0,null],[24,1,"風稍強，水面有碎浪"],[32,3,"風強"],[42,5,"風很強"],[1e9,7,"風過強"]],
+ scuba:[[22,0,null],[30,1,"風稍強"],[40,3,"風強，船潛留意"],[50,5,"風很強"],[1e9,7,"風過強"]],
+};
+const RAIN_STEPS=[[5,0,null],[20,1,"有雨，近岸能見度可能下降"],[50,2,"大雨，能見度差"],[1e9,3,"豪雨"]];
+
+/* ============ 工具 ============ */
+const $=id=>document.getElementById(id);
+const ZHW="一二三四五六日";
+const pickStep=(steps,v)=>{for(const [th,p,m] of steps)if(v<=th)return[p,m];return[0,null];};
+const fmt=(v,nd=1)=>v==null?"—":Number(v).toFixed(nd);
+const compass=d=>d==null?"":["N","NE","E","SE","S","SW","W","NW"][Math.floor(((d+22.5)%360)/45)];
+const wetsuit=t=>t==null?null:t>=28?"防磨衣或 3mm":t>=25?"3mm 濕衣":t>=22?"3–5mm 濕衣":t>=18?"5mm，自潛加頭套":"7mm／半乾式";
+const iso=d=>d.toISOString().slice(0,10);
+const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const gmapsUrl=(lat,lon)=>`https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+const toast=m=>{$("toast").textContent=m;};
+
+function assess(day,disc,entry){
+  const{wave,period,wind,gust,rain}=day;
+  if(wave==null&&wind==null)return{grade:"？",cls:"c-na",label:"無資料",reasons:["超出預報範圍"],pen:null};
+  let pen=0,rs=[];
+  if(wave==null)rs.push("無海象資料（座標可能太靠岸，往外海移一點試試）");
+  else{
+    const key=disc==="free"?"free":(entry==="shore"?"scuba_shore":"scuba_boat");
+    const[p,m]=pickStep(WAVE_STEPS[key],wave);pen+=p;if(m)rs.push(`${m}（浪高 ${wave.toFixed(1)} m）`);
+    if(period!=null&&period>=10&&wave>=0.8){pen+=1;rs.push(`長週期湧浪（${period.toFixed(0)}s），礁台/淺區有湧`);}
+  }
+  if(wind!=null){
+    const[p,m]=pickStep(WIND_STEPS[disc==="free"?"free":"scuba"],wind);pen+=p;if(m)rs.push(`${m}（風 ${wind.toFixed(0)} km/h）`);
+    if(gust!=null&&gust>=35&&gust>=wind*1.5){pen+=1;rs.push(`陣風明顯（${gust.toFixed(0)} km/h）`);}
+  }
+  if(rain!=null){const[p,m]=pickStep(RAIN_STEPS,rain);pen+=p;if(m)rs.push(`${m}（${rain.toFixed(0)} mm）`);}
+  const g=pen<=0?["◎","c-good","適合"]:pen<=2?["○","c-ok","尚可"]:pen<=4?["△","c-meh","勉強"]:["✕","c-bad","不建議"];
+  return{grade:g[0],cls:g[1],label:g[2],reasons:rs,pen};
+}
+
+/* ============ API ============ */
+async function jget(url,{timeout=45000,post=null}={}){
+  const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),timeout);
+  try{
+    const r=await fetch(url,{signal:ctl.signal,...(post?{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:post}:{})});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    return await r.json();
+  }finally{clearTimeout(t);}
+}
+async function getMarine(lat,lon){
+  const base=`https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lon}&timezone=auto`+
+    `&daily=wave_height_max,swell_wave_height_max,wind_wave_height_max,wave_period_max&hourly=sea_surface_temperature`;
+  try{return await jget(base+"&forecast_days=8");}catch(e){return await jget(base);}
+}
+const getWeather=(lat,lon)=>jget(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&timezone=auto&forecast_days=16`+
+  `&daily=wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,precipitation_sum`);
+const geocode=q=>jget(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=zh&format=json`);
+
+const idxDaily=js=>{const d=(js&&js.daily)||{},t=d.time||[],o={};
+  t.forEach((day,i)=>{o[day]={};for(const k in d)if(k!=="time")o[day][k]=d[k][i];});return o;};
+const sstMap=js=>{const h=(js&&js.hourly)||{},T=h.time||[],V=h.sea_surface_temperature||[],mid={},acc={};
+  T.forEach((t,i)=>{const v=V[i];if(v==null)return;const d=t.slice(0,10);
+    (acc[d]=acc[d]||[0,0])[0]+=v;acc[d][1]++;if(t.slice(11,13)==="12")mid[d]=v;});
+  const o={};for(const d in acc)o[d]=+(acc[d][0]/acc[d][1]).toFixed(1);
+  for(const d in mid)o[d]=+mid[d].toFixed(1);return o;};
+
+/* ============ 地圖 ============ */
+let map,searchLayer,selMarker,mode="shore";
+let target=null; /* {lat,lon,name,note} */
+
+function initMap(){
+  map=L.map("map",{worldCopyJump:true}).setView([15.5,119],4);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{
+    attribution:'© OpenStreetMap contributors © CARTO',subdomains:"abcd",maxZoom:19}).addTo(map);
+  searchLayer=L.layerGroup().addTo(map);
+  SITES.forEach(s=>addMarker({lat:s.lat,lon:s.lon,name:s.zh,kind:"內建潛點",mode:s.mode,note:s.note},"#3BD6EE",true));
+}
+function markerStyle(color){return{radius:7,color:"#04121C",weight:1.5,fillColor:color,fillOpacity:.95};}
+function addMarker(p,color,permanent=false){
+  const m=L.circleMarker([p.lat,p.lon],markerStyle(color));
+  const el=document.createElement("div");
+  el.innerHTML=`<div class="pop-name">${esc(p.name)}</div><div class="pop-kind">${esc(p.kind)} ・ ${p.lat.toFixed(4)},${p.lon.toFixed(4)}</div>`;
+  const btns=document.createElement("div");btns.className="pop-btns";
+  const b1=document.createElement("button");b1.className="pb main";b1.textContent="查潛況";
+  b1.addEventListener("click",()=>{pickTarget(p);map.closePopup();});
+  const b2=document.createElement("a");b2.className="pb gh";b2.textContent="Google 地圖 ↗";
+  b2.href=gmapsUrl(p.lat,p.lon);b2.target="_blank";b2.rel="noopener";
+  btns.append(b1,b2);el.append(btns);
+  m.bindPopup(el);
+  m.addTo(permanent?map:searchLayer);
+  return m;
+}
+function markSelected(lat,lon){
+  if(selMarker)map.removeLayer(selMarker);
+  selMarker=L.circleMarker([lat,lon],{radius:11,color:"#FFFFFF",weight:2.5,fillColor:"#3BD6EE",fillOpacity:.35}).addTo(map);
+}
+
+/* ============ 選定潛點 → 查潛況 ============ */
+function pickTarget(p,{autorun=true}={}){
+  target={lat:+(+p.lat).toFixed(4),lon:+(+p.lon).toFixed(4),name:p.name||"自訂座標",note:p.note||""};
+  if(p.mode)setMode(p.mode);
+  $("tname").innerHTML=`${esc(target.name)}<small>${target.lat},${target.lon}</small>`;
+  $("tnote").textContent=target.note;
+  $("gmap").href=gmapsUrl(target.lat,target.lon);
+  markSelected(target.lat,target.lon);
+  const z=map.getZoom();
+  map.flyTo([target.lat,target.lon],Math.max(z,9),{duration:.8});
+  try{history.replaceState(null,"",`#p=${target.lat},${target.lon}&n=${encodeURIComponent(target.name)}&m=${mode}`);}catch(e){}
+  if(autorun)run();
+}
+function setMode(m){mode=m;$("mShore").classList.toggle("on",m==="shore");$("mBoat").classList.toggle("on",m==="boat");}
+
+async function run(){
+  if(!target){showErr($("err"),"先選一個潛點（地圖標記、快選或搜尋）。");return;}
+  const err=$("err"),out=$("out"),btn=$("go");
+  err.classList.add("hidden");
+  const d1=new Date($("d1").value+"T00:00"),d2=new Date($("d2").value+"T00:00");
+  if(!(d1<=d2)){showErr(err,"結束日期需在開始日期之後。");return;}
+  if((d2-d1)/864e5>15){showErr(err,"範圍請在 16 天內（天氣預報上限）。");return;}
+
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>撈資料中…';
+  let mjs=null,wjs,marineFail=false;
+  try{
+    [wjs,mjs]=await Promise.all([getWeather(target.lat,target.lon),
+      getMarine(target.lat,target.lon).catch(()=>{marineFail=true;return null;})]);
+  }catch(e){
+    showErr(err,"抓不到天氣資料："+esc(e.message)+"。請檢查網路連線後再試。");
+    btn.disabled=false;btn.textContent="查潛況";return;
+  }
+  btn.disabled=false;btn.textContent="查潛況";
+
+  const M=idxDaily(mjs),W=idxDaily(wjs),S=sstMap(mjs);
+  const days=[];
+  for(let d=new Date(d1);d<=d2;d=addD(d,1)){
+    const k=iso(d),m=M[k]||{},w=W[k]||{};
+    const day={date:k,dow:ZHW[(d.getDay()+6)%7],
+      wave:m.wave_height_max??null,swell:m.swell_wave_height_max??null,period:m.wave_period_max??null,
+      wind:w.wind_speed_10m_max??null,gust:w.wind_gusts_10m_max??null,wdir:w.wind_direction_10m_dominant??null,
+      rain:w.precipitation_sum??null,sst:S[k]??null};
+    day.free=assess(day,"free",mode);day.scuba=assess(day,"scuba",mode);
+    days.push(day);
+  }
+  let best=null;
+  for(const d of days){if(d.free.pen==null)continue;
+    const tot=d.free.pen+d.scuba.pen;
+    if(best==null||tot<best.tot)best={date:d.date,tot};}
+  const showBest=best&&best.tot<=6&&days.length>1;
+
+  let html="";
+  if(marineFail)html+=`<div class="banner">⚠ 海象資料抓取失敗，以下僅以風雨評估。</div>`;
+  if(showBest){const b=days.find(d=>d.date===best.date);
+    html+=`<div class="best">🐢 這段期間狀況最好：<b>${b.date.slice(5).replace("-","/")}（週${b.dow}）</b> — 自潛 ${b.free.label}／水肺 ${b.scuba.label}</div>`;}
+  for(const d of days){
+    const na=d.wave==null&&d.wind==null;
+    const kt=d.wind==null?"":`≈${Math.round(d.wind/1.852)}kt`;
+    html+=`<article class="day${showBest&&d.date===best.date?" pickday":""}">
+      <div class="dhead"><div class="dtitle">${d.date.slice(5).replace("-","/")}<small>週${d.dow}</small></div>
+      ${showBest&&d.date===best.date?'<span class="tag">本區間之選</span>':""}</div>`;
+    if(na){html+=`<div class="reasons">超出預報範圍（海象約 7–8 天、天氣 16 天）</div></article>`;continue;}
+    html+=`<div class="verdicts">
+        <div class="v"><div class="who">自潛 FREEDIVE</div><div class="what ${d.free.cls}">${d.free.grade} ${d.free.label}</div></div>
+        <div class="v"><div class="who">水肺 SCUBA</div><div class="what ${d.scuba.cls}">${d.scuba.grade} ${d.scuba.label}</div></div>
+      </div>
+      <div class="gauges">
+        <div class="g"><b>WAVE 浪</b><span>${fmt(d.wave)}<i>m</i></span></div>
+        <div class="g"><b>SWELL 湧</b><span>${fmt(d.swell)}<i>m ${d.period!=null?fmt(d.period,0)+"s":""}</i></span></div>
+        <div class="g"><b>WIND 風</b><span>${fmt(d.wind,0)}<i>${kt} ${compass(d.wdir)}</i></span></div>
+        <div class="g"><b>GUST 陣風</b><span>${fmt(d.gust,0)}</span></div>
+        <div class="g"><b>RAIN 雨</b><span>${fmt(d.rain,0)}<i>mm</i></span></div>
+        <div class="g"><b>SST 海溫</b><span>${fmt(d.sst)}<i>°C</i></span></div>
+        <div class="g" style="grid-column:span 2"><b>SUIT 防寒</b><span style="font-size:11px;font-family:var(--sans);white-space:normal">${d.sst!=null?esc(wetsuit(d.sst)):"—"}</span></div>
+      </div>`;
+    const rs=[];
+    if(d.free.reasons.length)rs.push(`<b>自潛</b>：${d.free.reasons.map(esc).join("；")}`);
+    if(d.scuba.reasons.length)rs.push(`<b>水肺</b>：${d.scuba.reasons.map(esc).join("；")}`);
+    if(rs.length)html+=`<div class="reasons">${rs.join("<br>")}</div>`;
+    html+=`</article>`;
+  }
+  out.innerHTML=html;
+}
+function showErr(el,msg){el.innerHTML=msg;el.classList.remove("hidden");}
+
+/* ============ 搜尋：地名/座標 → 地圖 → 撈附近潛點 ============ */
+async function doSearch(){
+  const q=$("q").value.trim();
+  if(!q){toast("輸入地名或座標再搜尋。");return;}
+  const co=q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
+  let lat,lon,label;
+  if(co){lat=+co[1];lon=+co[2];label=`${lat},${lon}`;}
+  else{
+    toast("定位中…");
+    try{
+      const g=await geocode(q);
+      if(!g.results||!g.results.length){toast(`找不到「${q}」，換個寫法試試（中英文都可以）。`);return;}
+      const r=g.results[0];lat=r.latitude;lon=r.longitude;
+      label=[r.name,r.admin1,r.country].filter(Boolean).join(", ");
+    }catch(e){toast("定位服務連不上，稍後再試。");return;}
+  }
+  map.flyTo([lat,lon],9,{duration:.8});
+  await findNearby(lat,lon,label);
+}
+async function findNearby(lat,lon,label){
+  const radKm=+$("rad").value,r=radKm*1000;
+  toast(`已定位 ${label}，搜尋 ${radKm} km 內潛點…`);
+  const q=`[out:json][timeout:60];(
+    node["sport"="scuba_diving"](around:${r},${lat},${lon});
+    way["sport"="scuba_diving"](around:${r},${lat},${lon});
+    node["sport"~"^(freediving|free_diving)$"](around:${r},${lat},${lon});
+    node["leisure"="dive_centre"](around:${r},${lat},${lon});
+    way["leisure"="dive_centre"](around:${r},${lat},${lon});
+  );out center tags;`;
+  let js;
+  try{js=await jget("https://overpass-api.de/api/interpreter",{post:"data="+encodeURIComponent(q),timeout:90000});}
+  catch(e){
+    try{js=await jget("https://overpass.kumi.systems/api/interpreter",{post:"data="+encodeURIComponent(q),timeout:90000});}
+    catch(e2){toast("潛點資料庫忙碌中，等幾十秒再搜一次。也可以直接點地圖任意處查潛況。");return;}
+  }
+  searchLayer.clearLayers();
+  const seen=new Set();let n=0;const bounds=[];
+  for(const el of js.elements||[]){
+    const t=el.tags||{};
+    const la=el.lat??(el.center&&el.center.lat),lo=el.lon??(el.center&&el.center.lon);
+    if(la==null)continue;
+    const nm=t.name||t["name:en"]||"(未命名)";
+    const isCentre=t.leisure==="dive_centre",isFree=/free/.test(t.sport||"");
+    const kind=isCentre?"潛店":isFree?"自潛點":"潛點";
+    const key=nm+la.toFixed(3)+lo.toFixed(3);
+    if(seen.has(key))continue;seen.add(key);
+    addMarker({lat:la,lon:lo,name:nm,kind},isCentre?"#F5C542":isFree?"#3DD68C":"#7FD9F2");
+    bounds.push([la,lo]);n++;
+  }
+  if(n){toast(`找到 ${n} 個地點（藍＝潛點、綠＝自潛、黃＝潛店），點標記查潛況。`);
+    if(bounds.length>1)map.fitBounds(bounds,{padding:[36,36],maxZoom:12});}
+  else toast(`這一帶 OSM 沒有標記潛點。可加大半徑，或直接點地圖查該處海況。`);
+}
+
+/* ============ 初始化 ============ */
+(function init(){
+  initMap();
+  const chips=$("chips");
+  SITES.forEach(s=>{
+    const b=document.createElement("button");b.className="chip";b.textContent=s.zh;
+    b.addEventListener("click",()=>pickTarget({lat:s.lat,lon:s.lon,name:s.zh,mode:s.mode,note:s.note}));
+    chips.appendChild(b);
+  });
+  const today=new Date();
+  $("d1").value=iso(today);$("d2").value=iso(addD(today,6));
+  $("go").addEventListener("click",run);
+  $("qgo").addEventListener("click",doSearch);
+  $("q").addEventListener("keydown",e=>{if(e.key==="Enter")doSearch();});
+  $("mShore").addEventListener("click",()=>setMode("shore"));
+  $("mBoat").addEventListener("click",()=>setMode("boat"));
+  $("loc").addEventListener("click",()=>{
+    if(!navigator.geolocation){toast("這個環境不支援定位。");return;}
+    toast("取得定位中…");
+    navigator.geolocation.getCurrentPosition(
+      p=>{map.flyTo([p.coords.latitude,p.coords.longitude],10,{duration:.8});
+          findNearby(p.coords.latitude,p.coords.longitude,"我的位置");},
+      ()=>toast("取不到定位（需允許權限且為 https），可改用搜尋。"));
+  });
+  map.on("click",e=>{
+    addMarker({lat:e.latlng.lat,lon:e.latlng.lng,name:"地圖選點",kind:"自訂"}, "#9CC6CF").openPopup();
+  });
+
+  /* 分享連結 #p=lat,lon&n=name&m=mode */
+  const h=new URLSearchParams(location.hash.slice(1));
+  if(h.get("p")){
+    const[la,lo]=h.get("p").split(",").map(Number);
+    if(isFinite(la)&&isFinite(lo)){
+      if(h.get("m")==="boat")setMode("boat");
+      pickTarget({lat:la,lon:lo,name:h.get("n")||"分享的潛點"});
+      return;
+    }
+  }
+  pickTarget({lat:SITES[1].lat,lon:SITES[1].lon,name:SITES[1].zh,mode:SITES[1].mode,note:SITES[1].note}); /* 預設小琉球 */
+})();
+</script>
+</body>
+</html>
