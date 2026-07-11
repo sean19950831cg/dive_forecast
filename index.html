@@ -55,6 +55,12 @@ input:focus,select:focus,button:focus-visible,.chip:focus-visible{outline:2px so
 .chip:hover{color:var(--accent);border-color:rgba(59,214,238,.5)}
 .chip.on{color:var(--accent);border-color:var(--accent);background:rgba(59,214,238,.12);font-weight:700}
 .chips.sub .chip{font-size:12.5px;padding:7px 12px}
+#speciesBar{max-width:960px;margin:0 auto 14px;padding:11px 13px;border:1px solid rgba(197,140,242,.45);
+  border-radius:14px;background:rgba(120,70,180,.13);display:none}
+#speciesBar.show{display:block}
+#speciesBar .sp-title{font-size:13.5px;margin-bottom:9px;line-height:1.5}
+#speciesBar .sp-chips{display:flex;flex-wrap:wrap;gap:8px}
+#speciesBar .chip small{color:var(--ink-dim);font-size:10.5px;margin-left:5px}
 
 .layout{display:grid;grid-template-columns:1fr;gap:16px}
 @media(min-width:940px){.layout{grid-template-columns:minmax(380px,1fr) minmax(420px,1fr)}
@@ -138,7 +144,7 @@ footer a{color:var(--ink-dim)}
 </header>
 
 <div class="searchbar">
-  <input id="q" type="search" placeholder="輸入地名或座標（宿霧、Amed、9.94,123.37…）" autocomplete="off">
+  <input id="q" type="search" placeholder="地名、座標或生物（海龜、manta、宿霧…）" autocomplete="off">
   <select id="rad" title="搜尋半徑">
     <option value="10">10 km</option><option value="30" selected>30 km</option>
     <option value="50">50 km</option><option value="100">100 km</option>
@@ -149,11 +155,12 @@ footer a{color:var(--ink-dim)}
 
 <div class="chips" id="chips" aria-label="選擇區域"></div>
 <div class="chips sub" id="subchips" aria-label="選擇潛點"></div>
+<div id="speciesBar"><div class="sp-title" id="spTitle"></div><div class="sp-chips" id="spChips"></div></div>
 
 <div class="layout">
   <div class="mapcol">
     <div id="map" role="application" aria-label="潛點地圖"></div>
-    <div class="toast" id="toast">點區域→選潛點，或直接搜尋地名。</div>
+    <div class="toast" id="toast">點區域→選潛點；搜尋欄可打地名或生物（例：海龜）。</div>
   </div>
 
   <div>
@@ -242,6 +249,52 @@ const REGIONS=[
    {zh:"Similan",lat:8.650,lon:97.640,mode:"boat",facing:null,note:"每年約10–5月開放"},
    {zh:"Sipadan",lat:4.115,lon:118.628,mode:"boat",facing:null,note:"需事先申請許可"},
    {zh:"Dahab 藍洞",lat:28.572,lon:34.537,mode:"shore",facing:90,note:"自潛聖地"},
+ ]},
+];
+
+/* ============ 生物 → 推薦潛點（搜尋欄打生物名觸發；要加生物改這裡）============ */
+const SPECIES=[
+ {zh:"海龜",emoji:"🐢",names:["海龜","龜","turtle","sea turtle"],spots:[
+   {name:"小琉球・美人洞",lat:22.355,lon:120.368,mode:"shore",facing:315,season:"全年",note:"全島海龜密度極高，岸潛就看得到"},
+   {name:"Apo Island（菲律賓）",lat:9.076,lon:123.268,mode:"boat",season:"全年"},
+   {name:"Balicasag（菲律賓）",lat:9.517,lon:123.685,mode:"boat",season:"全年"},
+   {name:"Gili 群島（印尼）",lat:-8.349,lon:116.039,mode:"shore",season:"全年"},
+   {name:"Sipadan（馬來西亞）",lat:4.115,lon:118.628,mode:"boat",season:"全年，需許可"},
+ ]},
+ {zh:"鬼蝠魟",emoji:"🪁",names:["鬼蝠魟","蝠魟","manta","manta ray"],spots:[
+   {name:"Nusa Penida・Manta Point",lat:-8.792,lon:115.525,mode:"boat",season:"全年"},
+   {name:"石垣島 Manta Scramble",lat:24.450,lon:124.140,mode:"boat",season:"夏–秋"},
+   {name:"Komodo（印尼）",lat:-8.550,lon:119.490,mode:"boat",season:"全年，國家公園"},
+ ]},
+ {zh:"鯨鯊",emoji:"🦈",names:["鯨鯊","豆腐鯊","whale shark"],spots:[
+   {name:"Donsol（菲律賓）",lat:12.905,lon:123.580,mode:"boat",season:"約12–5月",note:"野生族群，以浮潛互動為主"},
+   {name:"Oslob（菲律賓）",lat:9.462,lon:123.383,mode:"boat",season:"全年",note:"定點餵食型互動，生態爭議大；可優先考慮 Donsol"},
+   {name:"Richelieu Rock（泰國）",lat:9.360,lon:98.020,mode:"boat",season:"約2–4月機率高"},
+ ]},
+ {zh:"沙丁魚風暴",emoji:"🐟",names:["沙丁魚","沙丁魚風暴","sardine","sardine run"],spots:[
+   {name:"Moalboal（宿霧）",lat:9.940,lon:123.370,mode:"shore",facing:270,season:"全年",note:"岸邊即達"},
+ ]},
+ {zh:"翻車魚 Mola",emoji:"🌞",names:["翻車魚","曼波魚","mola","mola mola","sunfish"],spots:[
+   {name:"Nusa Penida・Crystal Bay",lat:-8.717,lon:115.458,mode:"boat",season:"約7–10月",note:"水溫低、流強，進階船潛"},
+ ]},
+ {zh:"長尾鯊",emoji:"🌙",names:["長尾鯊","thresher","thresher shark"],spots:[
+   {name:"Malapascua・Monad Shoal",lat:11.310,lon:124.180,mode:"boat",season:"全年，清晨船潛"},
+ ]},
+ {zh:"雙髻鯊",emoji:"🔨",names:["雙髻鯊","槌頭鯊","hammerhead"],spots:[
+   {name:"與那國島（日本）",lat:24.452,lon:122.945,mode:"boat",season:"約1–3月",note:"冬季群游；海況常硬"},
+   {name:"Layang-Layang（馬來西亞）",lat:7.372,lon:113.844,mode:"boat",season:"約3–5月"},
+ ]},
+ {zh:"海蛞蝓／微距",emoji:"🐌",names:["海蛞蝓","微距","nudibranch","macro"],spots:[
+   {name:"Anilao（菲律賓）",lat:13.687,lon:120.884,mode:"boat",season:"全年，微距天堂"},
+   {name:"Lembeh（印尼）",lat:1.440,lon:125.230,mode:"boat",season:"全年，垃圾潛水聖地"},
+   {name:"東北角・潮境公園",lat:25.144,lon:121.805,mode:"shore",facing:10,season:"全年，季節種多"},
+ ]},
+ {zh:"豆丁海馬",emoji:"🐉",names:["豆丁海馬","海馬","pygmy seahorse","seahorse"],spots:[
+   {name:"Anilao（菲律賓）",lat:13.687,lon:120.884,mode:"boat",season:"全年"},
+   {name:"Lembeh（印尼）",lat:1.440,lon:125.230,mode:"boat",season:"全年"},
+ ]},
+ {zh:"無毒水母湖",emoji:"🎐",names:["水母","水母湖","jellyfish"],spots:[
+   {name:"Jellyfish Lake（帛琉）",lat:7.161,lon:134.376,mode:"boat",season:"全年",note:"僅限浮潛，禁用蛙鞋踢擊"},
  ]},
 ];
 
@@ -471,10 +524,48 @@ function setRegion(idx){
     pickTarget({lat:s.lat,lon:s.lon,name:`${rg.name}・${s.zh}`,mode:s.mode,facing:s.facing,note:s.note});}
 }
 
-/* ============ 搜尋：地名/座標 → 地圖 → 撈附近潛點 ============ */
+/* ============ 生物模式 ============ */
+function matchSpecies(q){
+  const s=q.toLowerCase().replace(/\s+/g,"");
+  for(const sp of SPECIES)for(const n of sp.names){
+    const a=n.toLowerCase().replace(/\s+/g,"");
+    if(s===a||(a.length>=2&&s.includes(a))||(s.length>=2&&a.includes(s)))return sp;
+  }
+  return null;
+}
+function renderSpecies(sp){
+  searchLayer.clearLayers();
+  const bounds=[];
+  sp.spots.forEach(s=>{
+    addMarker({lat:s.lat,lon:s.lon,name:s.name,
+      kind:`${sp.emoji} ${sp.zh}熱點${s.season?"・"+s.season:""}`,
+      mode:s.mode,facing:s.facing??null,note:s.note||""},"#C58CF2");
+    bounds.push([s.lat,s.lon]);
+  });
+  if(bounds.length>1)map.fitBounds(bounds,{padding:[40,40]});
+  else map.flyTo(bounds[0],9,{duration:.8});
+  $("spTitle").innerHTML=`${sp.emoji} 想看 <b>${esc(sp.zh)}</b>？這些點有穩定目擊（點一下查潛況）：`;
+  const box=$("spChips");box.innerHTML="";
+  sp.spots.forEach(s=>{
+    const b=document.createElement("button");b.className="chip";
+    b.innerHTML=`${esc(s.name)}${s.season?`<small>${esc(s.season)}</small>`:""}`;
+    b.addEventListener("click",()=>pickTarget({lat:s.lat,lon:s.lon,name:s.name,mode:s.mode,
+      facing:s.facing??null,note:(s.note||"")+(s.season?`（季節：${s.season}）`:"")}));
+    box.appendChild(b);
+  });
+  const x=document.createElement("button");x.className="chip";x.textContent="✕ 清除";
+  x.addEventListener("click",()=>{$("speciesBar").classList.remove("show");searchLayer.clearLayers();});
+  box.appendChild(x);
+  $("speciesBar").classList.add("show");
+  toast(`${sp.zh}：${sp.spots.length} 個推薦點已標上地圖（紫色標記）。`);
+}
+
+/* ============ 搜尋：生物 → 地名/座標 → 地圖 → 撈附近潛點 ============ */
 async function doSearch(){
   const q=$("q").value.trim();
-  if(!q){toast("輸入地名或座標再搜尋。");return;}
+  if(!q){toast("輸入地名、座標或生物名再搜尋。");return;}
+  const sp=matchSpecies(q);
+  if(sp){renderSpecies(sp);return;}
   const co=q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
   let lat,lon,label;
   if(co){lat=+co[1];lon=+co[2];label=`${lat},${lon}`;}
