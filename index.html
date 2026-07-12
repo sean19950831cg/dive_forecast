@@ -672,20 +672,39 @@ function wildSpeciesCard(q,js){
   toast(`「${q}」不在內建名單——正在從 iNaturalist 整理全球目擊熱區…`);
   loadINat(q,js,seq);
 }
-/* 依研究級目擊紀錄自動聚合熱區（約 55km 網格） */
+/* 依研究級目擊紀錄自動聚合熱區（約 55km 網格）
+   物種比對：維基 Wikidata → 學名（P225）→ iNat 精準比對；失敗才退回模糊搜尋 */
 async function loadINat(q,wiki,seq){
   const box=$("spChips");
   const loading=document.createElement("span");loading.className="cred";loading.textContent="整理全球目擊熱區中…";
   box.prepend(loading);
   try{
-    let taxa=await jget(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(q)}&per_page=1`,{timeout:20000});
-    let tx=taxa.results&&taxa.results[0];
+    /* 1) 從 Wikidata 拿學名 */
+    let sci=null;
+    try{
+      const qid=wiki&&wiki.wikibase_item;
+      if(qid){
+        const wd=await jget(`https://www.wikidata.org/wiki/Special:EntityData/${qid}.json`,{timeout:20000});
+        const ent=wd.entities&&wd.entities[qid];
+        const p=ent&&ent.claims&&ent.claims.P225&&ent.claims.P225[0];
+        sci=(p&&p.mainsnak&&p.mainsnak.datavalue&&p.mainsnak.datavalue.value)||null;
+      }
+    }catch(e){}
+    /* 2) iNat 物種：學名優先且要求名稱完全一致，其次才模糊 */
+    const seek=async(term,exact)=>{
+      const r=await jget(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(term)}&per_page=5&is_active=true`,{timeout:20000});
+      const list=r.results||[];
+      const hit=list.find(t=>t.name&&t.name.toLowerCase()===term.toLowerCase());
+      return hit||(exact?null:list[0]||null);
+    };
+    let tx=null,fuzzy=false;
+    if(sci)tx=await seek(sci,true);
+    if(!tx){tx=await seek(q,false);fuzzy=!!tx;}
     if(!tx&&wiki&&wiki.titles&&wiki.titles.normalized&&wiki.titles.normalized!==q){
-      taxa=await jget(`https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(wiki.titles.normalized)}&per_page=1`,{timeout:20000});
-      tx=taxa.results&&taxa.results[0];
-    }
+      tx=await seek(wiki.titles.normalized,false);fuzzy=!!tx;}
     if(seq!==wikiSeq)return;
-    if(!tx){loading.textContent="iNaturalist 找不到這個名稱——試試英文名或學名。";return;}
+    if(!tx){loading.textContent="iNaturalist 找不到這個物種——試試英文名或學名。";return;}
+
     const obs=await jget(`https://api.inaturalist.org/v1/observations?taxon_id=${tx.id}&quality_grade=research&captive=false&per_page=200`,{timeout:25000});
     if(seq!==wikiSeq)return;
     const buckets={};
@@ -695,7 +714,8 @@ async function loadINat(q,wiki,seq){
       const k=Math.round(la*2)/2+","+Math.round(lo*2)/2;
       const b=(buckets[k]=buckets[k]||{n:0,la:0,lo:0,places:{}});
       b.n++;b.la+=la;b.lo+=lo;
-      const pg=(o.place_guess||"").split(",")[0].trim();
+      const segs=(o.place_guess||"").split(",").map(s=>s.trim()).filter(Boolean);
+      const pg=segs.slice(-2).join(", ");   /* 「地區, 國家」而非門牌 */
       if(pg)b.places[pg]=(b.places[pg]||0)+1;
     }
     const top=Object.values(buckets).filter(b=>b.n>=2)
@@ -709,9 +729,11 @@ async function loadINat(q,wiki,seq){
       box.prepend(s);return;
     }
     const label=document.createElement("div");label.className="cred";label.style.width="100%";
-    label.textContent="🌍 目擊熱區（依 iNaturalist 研究級紀錄自動整理，非策展潛點，點一下查潛況）：";
+    label.textContent=`🌍 目擊熱區・對到物種：${tx.preferred_common_name||""}（${tx.name}）`
+      +(fuzzy?"⚠ 模糊比對，若不對請改用學名搜尋":"")
+      +"——依 iNaturalist 研究級紀錄自動整理，非策展潛點：";
     box.prepend(label);
-    const clear=box.lastElementChild; /* ✕ 清除 */
+    const clear=box.lastElementChild;
     top.forEach(s=>{
       const b=document.createElement("button");b.className="chip";
       b.innerHTML=`${esc(s.name)}<small>${s.n} 筆</small>`;
@@ -721,7 +743,7 @@ async function loadINat(q,wiki,seq){
       box.insertBefore(b,clear);
     });
     map.fitBounds(top.map(s=>[s.la,s.lo]),{padding:[40,40]});
-    toast(`「${q}」整理出 ${top.length} 個目擊熱區（紫色標記），點了直接看潛況。`);
+    toast(`「${q}」（${tx.name}）整理出 ${top.length} 個目擊熱區，點了直接看潛況。`);
   }catch(e){if(seq===wikiSeq)loading.textContent="目擊資料抓取失敗，稍後再試。";}
 }
 
